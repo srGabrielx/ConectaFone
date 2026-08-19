@@ -183,63 +183,6 @@ export class ScreenAudioCapture {
     };
   }
 
-    const audioTracks = rawStream.getAudioTracks();
-
-    // Verificação de superfície sem áudio (ex: Usuário selecionou "Janela" ou desmarcou a caixa)
-    if (audioTracks.length === 0) {
-      rawStream.getTracks().forEach(t => t.stop());
-      const error = new Error('SURFACE_WITHOUT_AUDIO');
-      error.code = 'SURFACE_WITHOUT_AUDIO';
-      throw error;
-    }
-
-    this.stream = rawStream;
-    this.audioTrack = audioTracks[0];
-    
-    console.log('[Capture] Áudio track obtida:', this.audioTrack);
-    console.log('[Capture] Track enabled:', this.audioTrack.enabled);
-    console.log('[Capture] Track readyState:', this.audioTrack.readyState);
-    console.log('[Capture] Track settings:', this.audioTrack.getSettings());
-    
-    // Paramos a track de vídeo imediatamente se não for necessária para economizar banda/bateria
-    const videoTracks = rawStream.getVideoTracks();
-    if (videoTracks.length > 0) {
-      this.videoTrack = videoTracks[0];
-      // Mantemos a track de vídeo ativa em background apenas para monitorar evento de cancelamento da barra
-      this.videoTrack.onended = () => {
-        console.log('[Capture] Track de vídeo encerrada pelo usuário');
-        this.stopCapture();
-        if (onEndedCallback) onEndedCallback();
-      };
-    }
-
-    this.audioTrack.onended = () => {
-      console.log('[Capture] Track de áudio encerrada');
-      this.stopCapture();
-      if (onEndedCallback) onEndedCallback();
-    };
-
-    // Conecta ao analisador visual do PC
-    try {
-      const ctx = await this.audioEngine.ensureContext();
-      const source = ctx.createMediaStreamSource(new MediaStream([this.audioTrack]));
-      this.analyser = ctx.createAnalyser();
-      this.analyser.fftSize = 64;
-      source.connect(this.analyser);
-    } catch (e) {
-      console.warn('[Analyser Attach Error]:', e);
-    }
-
-    // Cria MediaStream direto com a faixa de áudio original do Windows
-    const cleanAudioStream = new MediaStream([this.audioTrack]);
-
-    return {
-      stream: cleanAudioStream,
-      analyser: this.analyser,
-      isMobileFallback: false
-    };
-  }
-
   /**
    * Captura via Dispositivo (Mixagem Estéreo / Placa de Som)
    */
