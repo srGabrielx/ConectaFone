@@ -46,6 +46,9 @@ export class TransmitterUI {
 
     await ShareManager.renderQRCode(this.qrContainer, fullUrl);
 
+    // Verifica disponibilidade de Stereo Mix
+    await this.checkSystemAudioSupport();
+
     // Stream de áudio inicial silencioso para handshake WebRTC
     const silentStream = this.audioEngine.createSilentStream();
 
@@ -61,6 +64,40 @@ export class TransmitterUI {
     );
 
     this.setupCaptureEvents();
+  }
+
+  async checkSystemAudioSupport() {
+    try {
+      const devices = await this.screenCapture.constructor.getSystemAudioDevices();
+      
+      if (!devices.hasSystemAudio) {
+        console.warn('[Transmitter] Stereo Mix não detectado');
+        
+        // Verifica se está no Windows
+        const isWindows = navigator.platform.includes('Win');
+        
+        if (isWindows) {
+          // Adiciona aviso visual na interface com instruções
+          const warningDiv = document.createElement('div');
+          warningDiv.className = 'bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs px-3 py-2 rounded-lg mb-3';
+          warningDiv.innerHTML = `
+            <strong>⚠️ Stereo Mix não detectado</strong><br>
+            Para capturar TODO o som do sistema:<br>
+            1. Abra "Configurações de Som" do Windows<br>
+            2. Vá em "Gravação" > "Mostrar dispositivos desativados"<br>
+            3. Ative o "Stereo Mix" e defina como padrão
+          `;
+          
+          if (this.startSystemAudioBtn) {
+            this.startSystemAudioBtn.parentNode.insertBefore(warningDiv, this.startSystemAudioBtn);
+          }
+        }
+      } else {
+        console.log('[Transmitter] Stereo Mix detectado:', devices.system.map(d => d.label));
+      }
+    } catch (err) {
+      console.error('[Transmitter] Erro ao verificar suporte de áudio do sistema:', err);
+    }
   }
 
   setupCaptureEvents() {
@@ -106,15 +143,15 @@ export class TransmitterUI {
           } else if (err.message && err.message.includes('Could not start audio source')) {
             alert(
               "❌ Erro ao iniciar fonte de áudio\n\n" +
-              "Isso geralmente acontece quando:\n" +
-              "• O navegador não tem permissão para capturar áudio do sistema\n" +
-              "• Você selecionou uma guia/janela que não suporta áudio\n" +
-              "• As configurações de áudio do sistema estão bloqueadas\n\n" +
-              "👉 Tente estas soluções:\n" +
-              "1. Selecione 'Tela Inteira' em vez de uma janela específica\n" +
-              "2. Certifique-se de marcar 'Compartilhar áudio do sistema'\n" +
-              "3. Use o botão 'TRANSMITIR VIA MICROFONE/LINHA' como alternativa\n" +
-              "4. Verifique as permissões do navegador nas configurações do Windows"
+              "Para capturar TODO o som do sistema, você precisa habilitar o 'Stereo Mix' no Windows:\n\n" +
+              "📋 Como habilitar Stereo Mix:\n" +
+              "1. Clique com botão direito no ícone de volume > 'Configurações de som'\n" +
+              "2. Vá em 'Gerenciar dispositivos de som' > clique na aba 'Gravação'\n" +
+              "3. Clique com botão direito em área vazia > 'Mostrar dispositivos desativados'\n" +
+              "4. Clique com botão direito em 'Stereo Mix' > 'Ativar'\n" +
+              "5. Clique com botão direito em 'Stereo Mix' > 'Definir como dispositivo padrão'\n\n" +
+              "🔄 Depois recarregue esta página e tente novamente!\n\n" +
+              "💡 Alternativa: Use o botão 'TRANSMITIR VIA MICROFONE/LINHA' abaixo"
             );
           } else {
             alert("Não foi possível iniciar a captura: " + (err.message || err.name));
