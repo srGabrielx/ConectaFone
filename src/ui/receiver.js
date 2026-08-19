@@ -193,19 +193,31 @@ export class ReceiverUI {
         callStream,
         async (remoteStream) => {
           console.log('[Receiver] Áudio recebido. Processando canal único limpo sem eco...');
+          console.log('[Receiver] Stream recebido:', remoteStream);
+          console.log('[Receiver] Tracks no stream:', remoteStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, label: t.label })));
 
           // O elemento nativo apenas recebe o stream para manter a decodificação ativa no OS
           this.audioElement.srcObject = remoteStream;
           try {
             await this.audioElement.play();
-          } catch (e) {}
+            console.log('[Receiver] Elemento de áudio nativo iniciado com sucesso');
+          } catch (e) {
+            console.error('[Receiver] Erro ao iniciar elemento de áudio nativo:', e);
+          }
 
           // Conecta ÚNICA e EXCLUSIVAMENTE ao grafo Web Audio para som limpo sem duplicação
           try {
-            const source = ctx.createMediaStreamSource(remoteStream);
-            source.connect(inputNode);
+            const audioTracks = remoteStream.getAudioTracks();
+            if (audioTracks.length > 0) {
+              console.log('[Receiver] Conectando track de áudio ao grafo Web Audio...');
+              const source = ctx.createMediaStreamSource(remoteStream);
+              source.connect(inputNode);
+              console.log('[Receiver] Conexão Web Audio estabelecida com sucesso');
+            } else {
+              console.warn('[Receiver] Nenhuma track de áudio encontrada no stream remoto');
+            }
           } catch (err) {
-            console.warn('[Web Audio Graph Error]:', err);
+            console.error('[Web Audio Graph Error]:', err);
           }
 
           // Atualiza UI

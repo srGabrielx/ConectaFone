@@ -106,18 +106,25 @@ export class ScreenAudioCapture {
     this.stream = rawStream;
     this.audioTrack = audioTracks[0];
     
+    console.log('[Capture] Áudio track obtida:', this.audioTrack);
+    console.log('[Capture] Track enabled:', this.audioTrack.enabled);
+    console.log('[Capture] Track readyState:', this.audioTrack.readyState);
+    console.log('[Capture] Track settings:', this.audioTrack.getSettings());
+    
     // Paramos a track de vídeo imediatamente se não for necessária para economizar banda/bateria
     const videoTracks = rawStream.getVideoTracks();
     if (videoTracks.length > 0) {
       this.videoTrack = videoTracks[0];
       // Mantemos a track de vídeo ativa em background apenas para monitorar evento de cancelamento da barra
       this.videoTrack.onended = () => {
+        console.log('[Capture] Track de vídeo encerrada pelo usuário');
         this.stopCapture();
         if (onEndedCallback) onEndedCallback();
       };
     }
 
     this.audioTrack.onended = () => {
+      console.log('[Capture] Track de áudio encerrada');
       this.stopCapture();
       if (onEndedCallback) onEndedCallback();
     };
@@ -180,7 +187,13 @@ export class ScreenAudioCapture {
     this.stream = rawStream;
     this.audioTrack = audioTracks[0];
 
+    console.log('[Capture] Áudio track de dispositivo obtida:', this.audioTrack);
+    console.log('[Capture] Track enabled:', this.audioTrack.enabled);
+    console.log('[Capture] Track readyState:', this.audioTrack.readyState);
+    console.log('[Capture] Track settings:', this.audioTrack.getSettings());
+
     this.audioTrack.onended = () => {
+      console.log('[Capture] Track de áudio de dispositivo encerrada');
       this.stopCapture();
       if (onEndedCallback) onEndedCallback();
     };

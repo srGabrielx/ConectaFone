@@ -141,29 +141,47 @@ export class WebRTCManager {
   }
 
   updateHostStream(newStream, isSystemAudio = false) {
+    console.log('[WebRTC] Atualizando stream:', isSystemAudio ? 'ÁUDIO REAL' : 'STREAM SILENCIOSO');
     this.currentStream = newStream;
     this.isTransmittingAudio = isSystemAudio;
     const newTrack = newStream ? newStream.getAudioTracks()[0] : null;
 
     if (newTrack) {
-      this.activeCalls.forEach(call => {
+      console.log('[WebRTC] Nova track de áudio:', newTrack.label, newTrack.enabled, newTrack.readyState);
+      
+      this.activeCalls.forEach((call, index) => {
         try {
           const pc = call.peerConnection;
-          if (!pc) return;
+          if (!pc) {
+            console.warn(`[WebRTC] Chamada ${index} sem peerConnection`);
+            return;
+          }
 
           const senders = pc.getSenders();
           const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
 
           if (audioSender) {
+            console.log(`[WebRTC] Substituindo track na chamada ${index}...`);
             // Substituição atômica sem necessidade de nova negociação SDP
-            audioSender.replaceTrack(newTrack);
+            audioSender.replaceTrack(newTrack).then(() => {
+              console.log(`[WebRTC] Track substituída com sucesso na chamada ${index}`);
+            }).catch(err => {
+              console.error(`[WebRTC] Erro ao substituir track na chamada ${index}:`, err);
+            });
           } else {
+            console.log(`[WebRTC] Nenhum audio sender encontrado na chamada ${index}, adicionando nova track...`);
             pc.addTrack(newTrack, newStream);
           }
         } catch (e) {
-          console.warn('[WebRTC Track Replace Warn]:', e);
+          console.error('[WebRTC Track Replace Error]:', e);
         }
       });
+      
+      if (this.activeCalls.length === 0) {
+        console.log('[WebRTC] Nenhuma chamada ativa para atualizar stream');
+      }
+    } else {
+      console.warn('[WebRTC] Nenhuma track de áudio encontrada no novo stream');
     }
 
     this.broadcastStatus(isSystemAudio);

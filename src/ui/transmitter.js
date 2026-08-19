@@ -68,10 +68,14 @@ export class TransmitterUI {
     if (this.startSystemAudioBtn) {
       this.startSystemAudioBtn.addEventListener('click', async () => {
         try {
+          console.log('[Transmitter] Iniciando captura de áudio do sistema...');
           const { stream, analyser, isMobileFallback } = await this.screenCapture.startSystemAudioCapture(() => {
             this.handleCaptureStopped();
           });
 
+          console.log('[Transmitter] Stream capturado com sucesso:', stream);
+          console.log('[Transmitter] Tracks no stream:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, label: t.label })));
+          
           this.webrtcManager.updateHostStream(stream, true);
           this.hostCaptureIdle.style.display = 'none';
           this.hostCaptureActive.style.display = 'block';
@@ -123,7 +127,12 @@ export class TransmitterUI {
     if (this.startDeviceAudioBtn) {
       this.startDeviceAudioBtn.addEventListener('click', async () => {
         try {
+          console.log('[Transmitter] Iniciando captura de áudio de dispositivo...');
           const { stream, analyser } = await this.screenCapture.startDeviceAudioCapture();
+          
+          console.log('[Transmitter] Stream de dispositivo capturado:', stream);
+          console.log('[Transmitter] Tracks no stream:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, label: t.label })));
+          
           this.webrtcManager.updateHostStream(stream, true);
           this.hostCaptureIdle.style.display = 'none';
           this.hostCaptureActive.style.display = 'block';
