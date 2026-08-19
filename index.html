@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ConectaFone PRO • Transmissão de Áudio P2P em Tempo Real</title>
+  <meta name="theme-color" content="#00f2fe">
+  <meta name="description" content="Transmita e receba áudio em tempo real entre quaisquer dispositivos (PC, Celular, Tablet, Notebook) com ultra-baixa latência via WebRTC P2P.">
+  
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" href="/icons/icon-192.png">
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XR40KLLG4W"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-XR40KLLG4W');
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-dark-900 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-cyan-neon selection:text-black">
+
+  <!-- Native Hidden Audio Player for Mobile Browsers -->
+  <audio id="rxNativeAudioPlayer" autoplay playsinline webkit-playsinline class="hidden"></audio>
+
+  <!-- Header -->
+  <header class="h-16 px-4 sm:px-6 border-b border-white/10 bg-dark-900/80 backdrop-blur-xl sticky top-0 z-50 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-neon to-blue-neon flex items-center justify-center shadow-glow-cyan">
+        <svg class="w-5 h-5 fill-dark-900" viewBox="0 0 24 24">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-white to-cyan-neon bg-clip-text text-transparent">
+          ConectaFone <span class="text-xs text-cyan-neon font-bold ml-0.5 tracking-normal">PRO</span>
+        </h1>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Botão PIX no Header -->
+      <button id="pixHeaderBtn" class="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer" title="Apoiar projeto via PIX">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <span>Apoiar PIX</span>
+      </button>
+
+      <button id="installPwaBtn" class="hidden items-center gap-1.5 bg-gradient-to-r from-cyan-neon to-blue-neon text-dark-900 font-extrabold text-xs px-3.5 py-1.5 rounded-full shadow-glow-cyan transition-transform hover:scale-105" title="Instalar Aplicativo">
+        <svg class="w-4 h-4 stroke-current fill-none" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Baixar App
+      </button>
+
+      <div class="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-green-neon shadow-glow-green animate-pulse"></span>
+        <span id="connectedPeersBadge">P2P Cloud</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- App Main Container -->
+  <main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 flex flex-col">
+
+    <!-- View Switcher Genérico Multi-Dispositivo -->
+    <div class="flex bg-black/40 border border-white/10 p-1 rounded-xl mb-6 gap-1">
+      <button id="hostBtn" class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-sm text-slate-400 transition-all duration-200 hover:text-white [&.active]:bg-dark-700 [&.active]:text-white [&.active]:border [&.active]:border-cyan-neon/30 [&.active]:shadow-lg active">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+        </svg>
+        Transmissor (Enviar Áudio)
+      </button>
+      <button id="rxBtn" class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-sm text-slate-400 transition-all duration-200 hover:text-white [&.active]:bg-dark-700 [&.active]:text-white [&.active]:border [&.active]:border-cyan-neon/30 [&.active]:shadow-lg">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+        Receptor (Ouvir Áudio)
+      </button>
+    </div>
+
+    <!-- ==================== MODO TRANSMISSOR ==================== -->
+    <div id="hostView" class="grid grid-cols-1 md:grid-cols-12 gap-5">
+      
+      <!-- Left / Main Column -->
+      <div class="md:col-span-7 flex flex-col gap-5">
+        
+        <!-- Room & QR Code Box -->
+        <section class="glass-card flex flex-col sm:flex-row items-center gap-5">
+          <div class="bg-dark-900 p-2.5 rounded-xl border border-cyan-neon/40 flex flex-col items-center shadow-glow-cyan/20">
+            <div id="qrContainer" class="w-[140px] h-[140px] flex items-center justify-center"></div>
+            <span class="text-[10px] text-cyan-neon font-extrabold tracking-wider mt-1.5 uppercase">Escanear para Conectar</span>
+          </div>
+
+          <div class="flex-1 flex flex-col gap-3 w-full">
+            <div>
+              <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Código da Sala:</span>
+              <div id="roomCodeText" class="font-mono text-3xl font-extrabold tracking-widest text-cyan-neon drop-shadow-[0_0_12px_rgba(0,242,254,0.5)]">
+                GERANDO...
+              </div>
+            </div>
+
+            <div class="flex gap-1.5 w-full">
+              <input type="text" id="shareLinkInput" readonly class="flex-1 bg-black/60 border border-white/10 text-cyan-neon font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-neon">
+              <button id="copyShareBtn" class="action-btn">Copiar</button>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="whatsappShareBtn" class="action-btn whatsapp w-full">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                </svg>
+                Compartilhar no WhatsApp
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sound Streaming Section -->
+        <section class="glass-card">
+          <h2 class="text-base font-bold text-white mb-3 flex items-center gap-2">
+            <svg class="w-5 h-5 text-cyan-neon" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+            Transmissão de Áudio em Tempo Real
+          </h2>
+
+          <div class="bg-gradient-to-br from-cyan-neon/10 via-dark-700/50 to-blue-neon/5 border border-cyan-neon/30 rounded-xl p-5 text-center">
+            <div id="hostCaptureIdle" class="flex flex-col items-center">
+              <button id="startSystemAudioBtn" class="w-full bg-gradient-to-r from-cyan-neon to-blue-neon text-dark-900 font-extrabold text-sm sm:text-base py-3.5 px-6 rounded-xl shadow-glow-cyan transition-transform duration-200 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer">
+                <svg class="w-5 h-5 stroke-current fill-none" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                </svg>
+                INICIAR TRANSMISSÃO DE ÁUDIO DO SISTEMA
+              </button>
+              
+              <p class="text-xs text-slate-400 mt-3 leading-relaxed">
+                Transmite <strong>qualquer som do dispositivo</strong>: Vídeos, Filmes, Músicas, Jogos ou Navegador.<br>
+                <span class="text-cyan-neon/90 font-medium">Ao clicar, selecione "Tela Inteira" (ou guia) e marque "Compartilhar áudio".</span>
+              </p>
+
+              <div class="mt-4 pt-3 border-t border-white/10 w-full">
+                <button id="startDeviceAudioBtn" class="action-btn w-full">
+                  🎙️ Ou Transmitir via Microfone / Entrada de Linha
+                </button>
+              </div>
+            </div>
+
+            <div id="hostCaptureActive" class="hidden flex-col items-center">
+              <div class="flex items-center justify-center gap-2 mb-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-green-neon shadow-glow-green animate-ping"></span>
+                <span id="hostCaptureStatusText" class="font-bold text-green-neon text-sm sm:text-base">
+                  Transmitindo Áudio em Tempo Real!
+                </span>
+              </div>
+              
+              <canvas id="hostVisualizerCanvas" class="w-full h-16 rounded-lg bg-black/50 mb-3"></canvas>
+
+              <button id="stopCaptureBtn" class="bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 px-5 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer">
+                Parar Transmissão
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Right Column: Instructions -->
+      <div class="md:col-span-5 flex flex-col gap-5">
+        <section class="glass-card flex flex-col gap-4">
+          <h3 class="text-sm font-extrabold text-cyan-neon uppercase tracking-wider">
+            Como Funciona (Multi-Dispositivo)
+          </h3>
+          
+          <div class="space-y-3.5 text-xs text-slate-300 leading-relaxed">
+            <div class="flex items-start gap-2.5">
+              <div class="w-5 h-5 rounded-full bg-cyan-neon/10 border border-cyan-neon/40 text-cyan-neon flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</div>
+              <div><strong>No Dispositivo Transmissor:</strong> Clique no botão azul <em>"INICIAR TRANSMISSÃO"</em> e compartilhe a tela com áudio ativado.</div>
+            </div>
+
+            <div class="flex items-start gap-2.5">
+              <div class="w-5 h-5 rounded-full bg-cyan-neon/10 border border-cyan-neon/40 text-cyan-neon flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</div>
+              <div><strong>No Dispositivo Receptor:</strong> Abra o link ou escaneie o QR Code, conecte seus fones e toque em <strong>"Ouvir Som"</strong>.</div>
+            </div>
+
+            <div class="flex items-start gap-2.5">
+              <div class="w-5 h-5 rounded-full bg-cyan-neon/10 border border-cyan-neon/40 text-cyan-neon flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</div>
+              <div><strong>Multi-Uso & Vice-Versa:</strong> Funciona entre PC &lt;-&gt; Celular, Celular &lt;-&gt; PC, Notebook &lt;-&gt; Tablet ou qualquer combinação.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+
+    <!-- ==================== MODO RECEPTOR ==================== -->
+    <div id="rxView" class="hidden flex-col items-center justify-center max-w-md mx-auto w-full my-auto py-4">
+      
+      <!-- Connect State Box -->
+      <div id="rxStartBox" class="flex flex-col items-center gap-5 w-full text-center">
+        
+        <div class="w-full max-w-xs">
+          <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Código da Sala:</label>
+          <input type="text" id="rxRoomInput" placeholder="Ex: CF-1234" class="w-full text-center uppercase font-mono text-xl font-extrabold py-3 px-4 rounded-xl border border-cyan-neon/60 bg-black/60 text-white shadow-glow-cyan/20 outline-none focus:border-cyan-neon">
+        </div>
+
+        <button id="rxStartBtn" class="rx-start-btn">
+          <svg class="w-12 h-12 fill-dark-900" viewBox="0 0 24 24">
+            <path d="M12 1a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 0 0-9-9z"/>
+          </svg>
+          <span>Ouvir Som</span>
+        </button>
+
+        <button id="rxTestBeepBtn" class="action-btn bg-cyan-neon/10 border-cyan-neon/30 text-cyan-neon hover:bg-cyan-neon/20">
+          🔔 Testar Som do Dispositivo
+        </button>
+
+        <p class="text-xs text-slate-400 px-4 leading-relaxed">
+          Conecte seus fones de ouvido e toque no botão para ouvir o áudio transmitido em tempo real.
+        </p>
+      </div>
+
+      <!-- Active Listening Dashboard -->
+      <div id="rxActiveDashboard" class="hidden w-full flex-col gap-4">
+        
+        <!-- Visualizer Card -->
+        <section class="glass-card">
+          <div class="flex justify-between items-center mb-2">
+            <span id="rxStatusMessage" class="text-sm font-bold text-green-neon flex items-center gap-1.5">
+              ● Conectado ao Transmissor
+            </span>
+            <span id="rxLatencyText" class="text-xs font-mono text-cyan-neon bg-cyan-neon/10 px-2 py-0.5 rounded">&lt; 30 ms</span>
+          </div>
+          <canvas id="rxVisualizerCanvas" class="w-full h-20 rounded-lg bg-black/60"></canvas>
+        </section>
+
+        <!-- Volume Booster Card -->
+        <section class="glass-card">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-slate-200">Volume & Amplificador (+200%)</span>
+            <span id="rxVolumeVal" class="font-mono text-xs font-bold text-cyan-neon bg-cyan-neon/10 px-2 py-0.5 rounded">100%</span>
+          </div>
+          <div class="mt-1">
+            <input type="range" id="rxVolumeSlider" class="custom-slider" min="0" max="2.0" step="0.05" value="1.0">
+          </div>
+        </section>
+
+        <!-- Auto-Sync & Lip-Sync Card -->
+        <section class="glass-card">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-slate-200">Sincronia de Áudio & Vídeo</span>
+            <span id="rxDelayVal" class="font-mono text-xs font-bold text-cyan-neon bg-cyan-neon/10 px-2 py-0.5 rounded">0 ms</span>
+          </div>
+          
+          <div class="mt-1">
+            <input type="range" id="rxDelaySlider" class="custom-slider" min="-500" max="1500" step="10" value="0">
+          </div>
+
+          <!-- Presets & Auto-Sync -->
+          <div class="grid grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-white/10">
+            <button id="rxAutoSyncBtn" class="action-btn bg-cyan-neon/15 border-cyan-neon/40 text-cyan-neon font-extrabold hover:bg-cyan-neon/25">
+              ⚡ Auto-Sync
+            </button>
+            <button id="rxPresetMovie" class="action-btn hover:bg-white/10">
+              🎬 Cinema
+            </button>
+            <button id="rxPresetGaming" class="action-btn hover:bg-white/10">
+              🎮 Ultra Baixa
+            </button>
+          </div>
+        </section>
+
+        <!-- Stop Button -->
+        <button id="rxStopBtn" class="w-full bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 py-3 rounded-xl font-bold text-sm transition-colors cursor-pointer">
+          Desconectar Áudio
+        </button>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer with PIX Support -->
+  <footer class="py-5 px-4 text-center text-xs text-slate-500 border-t border-white/5 bg-dark-900/50 flex flex-col items-center gap-2.5">
+    <div class="flex flex-wrap items-center justify-center gap-2">
+      <span class="text-slate-400 font-medium">Gostou do ConectaFone? Apoie o projeto via PIX:</span>
+      <button id="copyPixFooterBtn" class="action-btn bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer">
+        💚 Copiar Chave PIX: gabriel094x@gmail.com
+      </button>
+    </div>
+    <p class="text-[11px] text-slate-600">ConectaFone PRO • WebRTC P2P Audio Streaming • Vite & Tailwind CSS</p>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

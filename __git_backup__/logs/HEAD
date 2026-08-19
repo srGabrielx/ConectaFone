@@ -1,0 +1,20 @@
+0000000000000000000000000000000000000000 68fb90356f47b2b18a5cd355b92d0c286925a29a srGabrielx <gabriel094x@gmail.com> 1786761376 -0300	commit (initial): first commit
+68fb90356f47b2b18a5cd355b92d0c286925a29a 0000000000000000000000000000000000000000 srGabrielx <gabriel094x@gmail.com> 1786761377 -0300	Branch: renamed refs/heads/master to refs/heads/main
+0000000000000000000000000000000000000000 68fb90356f47b2b18a5cd355b92d0c286925a29a srGabrielx <gabriel094x@gmail.com> 1786761377 -0300	Branch: renamed refs/heads/master to refs/heads/main
+68fb90356f47b2b18a5cd355b92d0c286925a29a bcd3a5c3ec44dd98fdbfcd0a8cb9ed1b8d1aedd9 srGabrielx <gabriel094x@gmail.com> 1786761766 -0300	commit: feat: migrate to Vite and modular folder structure
+bcd3a5c3ec44dd98fdbfcd0a8cb9ed1b8d1aedd9 a462cfbbcfdc7afd537677b1a2c5a6f3251feef6 srGabrielx <gabriel094x@gmail.com> 1786761921 -0300	commit: docs: add educational README guides across all modules
+a462cfbbcfdc7afd537677b1a2c5a6f3251feef6 d55e3a5b6654f0a12b490f6585650df3e1f63a9d srGabrielx <gabriel094x@gmail.com> 1786762316 -0300	commit: feat: add vercel CLI and deploy script
+d55e3a5b6654f0a12b490f6585650df3e1f63a9d 9b7efda42d835afb8a0622f303322cbd88ea4491 srGabrielx <gabriel094x@gmail.com> 1786762557 -0300	commit: fix: enable full PC system audio capture and fix mobile audio playback
+9b7efda42d835afb8a0622f303322cbd88ea4491 d3ee38bd7ec05ad536e3dba6a83664fe2526ab69 srGabrielx <gabriel094x@gmail.com> 1786762921 -0300	commit: fix: improve cloud WebRTC STUN redundancy and DataChannel sync
+d3ee38bd7ec05ad536e3dba6a83664fe2526ab69 c1ffca07b149ef53b250a5ec68cd017be9fcf1e2 srGabrielx <gabriel094x@gmail.com> 1786763342 -0300	commit: fix: update transmitter URL and build output
+c1ffca07b149ef53b250a5ec68cd017be9fcf1e2 0000000000000000000000000000000000000000 srGabrielx <gabriel094x@gmail.com> 1786763665 -0300	Branch: renamed refs/heads/main to refs/heads/main
+c1ffca07b149ef53b250a5ec68cd017be9fcf1e2 c1ffca07b149ef53b250a5ec68cd017be9fcf1e2 srGabrielx <gabriel094x@gmail.com> 1786763665 -0300	Branch: renamed refs/heads/main to refs/heads/main
+c1ffca07b149ef53b250a5ec68cd017be9fcf1e2 df79ce5c6937826f50b80f0821ef3bae5486a93f srGabrielx <gabriel094x@gmail.com> 1786763694 -0300	commit: fix: add free TURN relay and pristine stream pipeline for Vercel cloud
+df79ce5c6937826f50b80f0821ef3bae5486a93f c397d1ef62b11e7f7a9d8409c83a0fb1cc092fd7 srGabrielx <gabriel094x@gmail.com> 1786763884 -0300	commit: fix: force instant cache update on Vercel and PWA
+c397d1ef62b11e7f7a9d8409c83a0fb1cc092fd7 aad32ad81c354ccccc8da24c03250411fce5f611 srGabrielx <gabriel094x@gmail.com> 1786764628 -0300	commit: refactor: clean binaries, adopt Tailwind CSS, and optimize WebRTC with Opus HD FEC
+aad32ad81c354ccccc8da24c03250411fce5f611 ef7edb7b6edcb4a4e630f793764e7bdc36a5e707 srGabrielx <gabriel094x@gmail.com> 1786764914 -0300	commit: fix: eliminate duplicate audio output and add auto-sync jitter calibration
+ef7edb7b6edcb4a4e630f793764e7bdc36a5e707 5aa7a3bb38043b3507003edecd2174ae6c243e65 srGabrielx <gabriel094x@gmail.com> 1786765426 -0300	commit: feat: make transmitter/receiver generic multi-device and add PIX support
+5aa7a3bb38043b3507003edecd2174ae6c243e65 964d1f0011f784d22e8fc888e490d71f0e36d13b srGabrielx <gabriel094x@gmail.com> 1786766011 -0300	commit: feat: add vercel analytics tracking
+964d1f0011f784d22e8fc888e490d71f0e36d13b b9db3d1e44bd4c393719a2a10ef7aeb1292ca844 srGabrielx <gabriel094x@gmail.com> 1786766615 -0300	commit: feat: add google analytics 4 (gtag.js) tracking
+b9db3d1e44bd4c393719a2a10ef7aeb1292ca844 78539e63ff329410094c9f8e8fa40f9489cf8a44 srGabrielx <gabriel094x@gmail.com> 1787020751 -0300	commit: fix(capture): add mobile fallback and robust getDisplayMedia constraints
+78539e63ff329410094c9f8e8fa40f9489cf8a44 a483c81a5e43b40effcd6f0508657c1653bf7e93 srGabrielx <gabriel094x@gmail.com> 1787021068 -0300	commit: fix(audio): eliminate unwanted synth tone and refine screen capture constraints

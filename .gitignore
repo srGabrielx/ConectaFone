@@ -1,0 +1,37 @@
+# Node & Vite Build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Vercel
+.vercel/
+
+# Binaries & Compiled Files (Governance Rule)
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.obj
+*.o
+*.class
+
+# Temporary & Export Trash
+UT*
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+*.egg-info/

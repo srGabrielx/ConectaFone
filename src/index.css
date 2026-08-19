@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dark-900: #070913;
+  --color-dark-800: #0c101d;
+  --color-dark-700: #141a2e;
+  --color-dark-600: #1c243f;
+
+  --color-cyan-neon: #00f2fe;
+  --color-blue-neon: #4facfe;
+  --color-green-neon: #00f5a0;
+  --color-red-neon: #ff4757;
+
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --shadow-glow-cyan: 0 0 25px rgba(0, 242, 254, 0.35);
+  --shadow-glow-green: 0 0 20px rgba(0, 245, 160, 0.4);
+  --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: #070913;
+    color: #f8fafc;
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(0, 242, 254, 0.06) 0%, transparent 50%),
+      radial-gradient(circle at 85% 30%, rgba(79, 172, 254, 0.06) 0%, transparent 50%);
+  }
+}
+
+.glass-card {
+  background: rgba(12, 16, 29, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(0, 242, 254, 0.3);
+  background: rgba(20, 26, 46, 0.85);
+}
+
+.custom-slider {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.custom-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: #00f2fe;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.5);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.action-btn.whatsapp {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.action-btn.whatsapp:hover {
+  background: rgba(16, 185, 129, 0.25);
+}
+
+.rx-start-btn {
+  width: 11rem;
+  height: 11rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #00f2fe 0%, #4facfe 100%);
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #070913;
+  font-weight: 800;
+  font-size: 1.125rem;
+  cursor: pointer;
+  box-shadow: 0 0 35px rgba(0, 242, 254, 0.4);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+  animation: pulseGlow 2.5s infinite;
+}
+
+.rx-start-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 55px rgba(0, 242, 254, 0.7);
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 25px rgba(0, 242, 254, 0.3); }
+  50% { box-shadow: 0 0 55px rgba(0, 242, 254, 0.7); }
+}
