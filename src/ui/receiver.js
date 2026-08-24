@@ -33,6 +33,9 @@ export class ReceiverUI {
     this.dataConn = null;
     this.audioElement = null;
     this.statsInterval = null;
+    
+    this.hasReceivedInitialStatus = false;
+    this.wasTransmitting = false;
   }
 
   init() {
@@ -159,15 +162,17 @@ export class ReceiverUI {
     }, 2000);
   }
 
-  async startListening() {
+  async startListening(isUnderTheHoodReconnect = false) {
     const targetRoom = (this.rxRoomInput.value || '').trim().toUpperCase();
     if (!targetRoom) {
-      alert("Por favor, digite o Código da Sala (ex: CF-1234) gerado no computador.");
+      if (!isUnderTheHoodReconnect) {
+        alert("Por favor, digite o Código da Sala (ex: CF-1234) gerado no computador.");
+      }
       return;
     }
 
     try {
-      console.log('[Receiver] Iniciando conexão com sala:', targetRoom);
+      console.log(isUnderTheHoodReconnect ? '[Receiver] Reconectando debaixo dos panos...' : '[Receiver] Iniciando conexão com sala:', targetRoom);
       
       // Cria elemento de áudio simples e direto
       this.audioElement = document.getElementById('rxNativeAudioPlayer');
@@ -263,6 +268,24 @@ export class ReceiverUI {
         (msg) => {
           console.log('[Receiver] Mensagem recebida:', msg);
           if (msg.type === 'HOST_STATUS') {
+            if (!this.hasReceivedInitialStatus) {
+              this.hasReceivedInitialStatus = true;
+              this.wasTransmitting = msg.isTransmitting;
+            } else {
+              // Status mudou enquanto estávamos conectados
+              if (msg.isTransmitting && !this.wasTransmitting) {
+                this.wasTransmitting = true;
+                console.log('[Receiver] Host iniciou transmissão! Forçando reconexão para contornar bug de replaceTrack do WebAudio...');
+                // Reconecta para pegar a track real direto do answer() do host
+                if (this.activeCall) {
+                  try { this.activeCall.close(); } catch (e) {}
+                }
+                setTimeout(() => this.startListening(true), 200);
+              } else if (!msg.isTransmitting && this.wasTransmitting) {
+                this.wasTransmitting = false;
+              }
+            }
+
             if (this.rxStatusMessage) {
               if (msg.isTransmitting) {
                 this.rxStatusMessage.textContent = '● Recebendo Áudio do PC!';
