@@ -92,7 +92,11 @@ export class TransmitterUI {
         } catch (err) {
           console.error('[Transmitter] Erro na captura:', err);
           
-          if (err.code === 'SYSTEM_AUDIO_NOT_SHARED' || err.code === 'SURFACE_WITHOUT_AUDIO' || err.message === 'SYSTEM_AUDIO_NOT_SHARED') {
+          if (err.code === 'MOBILE_AUDIO_UNSUPPORTED') {
+            alert(err.message);
+          } else if (err.code === 'SYSTEM_AUDIO_REQUIRES_MONITOR') {
+            alert("Por favor, selecione a aba 'Tela Inteira' (ou 'Entire Screen') para capturar o áudio do sistema corretamente.");
+          } else if (err.code === 'SYSTEM_AUDIO_NOT_SHARED' || err.code === 'SURFACE_WITHOUT_AUDIO' || err.message === 'SYSTEM_AUDIO_NOT_SHARED') {
             alert(
               "Áudio do sistema não foi compartilhado.\n\n" +
               "1. Abra a aba Tela inteira\n" +

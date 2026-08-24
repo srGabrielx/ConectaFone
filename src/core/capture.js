@@ -1,6 +1,6 @@
 /**
- * ConectaFone - Audio Capture Engine
- * Captura TODO o som do PC com máxima fidelidade e zero perda
+ * Captura o áudio do sistema preservando a track original
+ * para transmissão WebRTC em alta qualidade.
  */
 
 export class ScreenAudioCapture {
@@ -38,15 +38,6 @@ export class ScreenAudioCapture {
   async startSystemAudioCapture(onEndedCallback) {
     this.stopCapture();
 
-    const isMobile = ScreenAudioCapture.isMobileDevice();
-
-    // No Mobile, getDisplayMedia com áudio interno não é suportado pelo SO.
-    // Redireciona diretamente para o modo de áudio otimizado de dispositivo.
-    if (isMobile) {
-      console.warn('[Capture] Dispositivo móvel detectado. Ativando Modo Áudio HD (Microfone/Linha).');
-      return this.startDeviceAudioCapture(null, onEndedCallback);
-    }
-
     // Usa getDisplayMedia com hints avançados para captura de áudio global do sistema
     let rawStream = null;
 
@@ -69,11 +60,20 @@ export class ScreenAudioCapture {
     const audioTrack = rawStream.getAudioTracks()[0];
     const surface = videoTrack?.getSettings()?.displaySurface;
     
+    if (surface !== 'monitor') {
+      rawStream.getTracks().forEach(t => t.stop());
+      const error = new Error('SYSTEM_AUDIO_REQUIRES_MONITOR');
+      error.code = 'SYSTEM_AUDIO_REQUIRES_MONITOR';
+      throw error;
+    }
+
     console.table({
-      surface: videoTrack?.getSettings()?.displaySurface,
+      fallback: false,
+      surface: surface,
       audioLabel: audioTrack?.label,
-      sampleRate: audioTrack?.getSettings()?.sampleRate,
+      audioId: audioTrack?.id,
       channels: audioTrack?.getSettings()?.channelCount,
+      sampleRate: audioTrack?.getSettings()?.sampleRate,
       audioReady: audioTrack?.readyState,
       audioMuted: audioTrack?.muted
     });
@@ -84,12 +84,24 @@ export class ScreenAudioCapture {
       rawStream.getTracks().forEach(t => t.stop());
       const error = new Error("SYSTEM_AUDIO_NOT_SHARED");
       error.code = "SYSTEM_AUDIO_NOT_SHARED";
+      if (ScreenAudioCapture.isMobileDevice()) {
+        error.message = "Captura de áudio do sistema não suportada neste dispositivo.";
+        error.code = "MOBILE_AUDIO_UNSUPPORTED";
+      }
       throw error;
     }
 
     this.stream = rawStream;
     this.videoTrack = videoTrack;
     this.audioTrack = audioTrack;
+    
+    console.log('[SYSTEM AUDIO REAL]', {
+      id: this.audioTrack.id,
+      label: this.audioTrack.label,
+      settings: this.audioTrack.getSettings(),
+      constraints: this.audioTrack.getConstraints()
+    });
+    
     this.audioTrack.enabled = true;
 
     // Mantemos a captura original viva (videoTrack ativo) apenas para controle de encerramento

@@ -247,12 +247,11 @@ export class WebRTCManager {
               console.warn('[WEBRTC] sender.setParameters notice:', pErr);
             }
 
-            console.log('[WEBRTC AUDIO SENDER]', {
-              kind: audioSender.track?.kind ?? null,
-              label: audioSender.track?.label ?? null,
-              enabled: audioSender.track?.enabled ?? null,
-              muted: audioSender.track?.muted ?? null,
-              readyState: audioSender.track?.readyState ?? null
+            console.log('[WEBRTC SENDER]', {
+              captureId: targetTrack.id,
+              senderId: audioSender.track?.id,
+              sameTrack: targetTrack.id === audioSender.track?.id,
+              label: audioSender.track?.label
             });
           }).catch(err => {
             console.error(`[WEBRTC] Erro ao substituir track na chamada ${index}:`, err);
