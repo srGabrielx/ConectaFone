@@ -43,13 +43,13 @@ export class ScreenAudioCapture {
 
     try {
       const displayConstraints = {
-        video: { displaySurface: "monitor" },
-        audio: true, 
+        video: true, // deixa o usuário escolher: Guia, Janela ou Tela Inteira
+        audio: true,
         systemAudio: "include",
         surfaceSwitching: "include",
         selfBrowserSurface: "exclude"
       };
-      console.log('[CAPTURE] Solicitando captura de tela/sistema com constraints simplificadas...');
+      console.log('[CAPTURE] Solicitando captura - usuário pode escolher Guia, Janela ou Tela Inteira...');
       rawStream = await navigator.mediaDevices.getDisplayMedia(displayConstraints);
     } catch (err) {
       console.error('[CAPTURE] Erro ao abrir seleção de tela/áudio:', err.name, err.message);
@@ -60,12 +60,7 @@ export class ScreenAudioCapture {
     const audioTrack = rawStream.getAudioTracks()[0];
     const surface = videoTrack?.getSettings()?.displaySurface;
     
-    if (surface !== 'monitor') {
-      rawStream.getTracks().forEach(t => t.stop());
-      const error = new Error('SYSTEM_AUDIO_REQUIRES_MONITOR');
-      error.code = 'SYSTEM_AUDIO_REQUIRES_MONITOR';
-      throw error;
-    }
+    // Loga a superfície escolhida pelo usuário para diagnóstico
 
     console.table({
       fallback: false,

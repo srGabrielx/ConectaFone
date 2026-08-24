@@ -94,8 +94,6 @@ export class TransmitterUI {
           
           if (err.code === 'MOBILE_AUDIO_UNSUPPORTED') {
             alert(err.message);
-          } else if (err.code === 'SYSTEM_AUDIO_REQUIRES_MONITOR') {
-            alert("Por favor, selecione a aba 'Tela Inteira' (ou 'Entire Screen') para capturar o áudio do sistema corretamente.");
           } else if (err.code === 'SYSTEM_AUDIO_NOT_SHARED' || err.code === 'SURFACE_WITHOUT_AUDIO' || err.message === 'SYSTEM_AUDIO_NOT_SHARED') {
             alert(
               "Áudio do sistema não foi compartilhado.\n\n" +

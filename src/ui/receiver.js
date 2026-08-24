@@ -52,14 +52,10 @@ export class ReceiverUI {
     this.rxVolumeSlider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
       this.rxVolumeVal.textContent = Math.round(val * 100) + '%';
-      
-      // Controla volume diretamente no elemento de áudio
+      // Volume controlado diretamente no elemento de áudio (caminho de reprodução real)
       if (this.audioElement) {
         this.audioElement.volume = val;
       }
-      
-      // Também controla no Web Audio para o visualizador
-      this.audioEngine.setVolume(val);
     });
 
     this.rxDelaySlider.addEventListener('input', (e) => {
@@ -185,18 +181,12 @@ export class ReceiverUI {
         this.audioElement.play().catch(() => {});
       } catch (e) {}
 
-      // Prepara pipeline WebAudio: Gain → Delay → Analyser → ctx.destination
-      // TODA a reprodução passa por aqui. O <audio> element não será usado para playback.
+      // WebAudio apenas para o analisador visual - NÃO conecta ao ctx.destination
       const ctx = await this.audioEngine.ensureContext();
-      const { inputNode, analyser } = this.audioEngine.setupReceiverPipeline(
-        parseFloat(this.rxVolumeSlider.value),
-        parseInt(this.rxDelaySlider.value)
-      );
-
-      // Desbloqueia o AudioContext no iOS durante o evento de clique síncrono
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.8;
 
       console.log('[Receiver] Conectando via WebRTC...');
       const { call, dataConn } = await this.webrtcManager.connectReceiver(
@@ -226,14 +216,25 @@ export class ReceiverUI {
             return;
           }
 
-          // ÚNICO caminho de áudio: remoteStream → WebAudio → Gain → Delay → Analyser → alto-falante
-          // NÃO usamos audioElement.srcObject para evitar playback duplicado (eco/fase).
+          // REPRODUÇÃO PRINCIPAL: audioElement com srcObject
+          // Funciona em 100% dos dispositivos (Chrome, Safari, iOS, Android)
+          this.audioElement.srcObject = remoteStream;
+          this.audioElement.volume = parseFloat(this.rxVolumeSlider.value);
+          try {
+            await this.audioElement.play();
+            console.log('[RECEIVER] Áudio iniciado via audioElement');
+          } catch (e) {
+            console.warn('[RECEIVER] autoplay bloqueado, aguardando interacao:', e);
+          }
+
+          // VISUALIZADOR: WebAudio conectado APENAS ao analyser (sem ctx.destination = sem duplo som)
           try {
             const source = ctx.createMediaStreamSource(remoteStream);
-            source.connect(inputNode);
-            console.log('[RECEIVER] Pipeline WebAudio conectado: remoteStream → gain → delay → analyser → saída');
+            source.connect(analyser);
+            // analyser NÃO é conectado ao ctx.destination - apenas lê dados para o canvas
+            console.log('[RECEIVER] Analisador visual conectado');
           } catch (err) {
-            console.warn('[RECEIVER] Erro ao conectar pipeline WebAudio:', err);
+            console.warn('[RECEIVER] Erro no analisador visual:', err);
           }
 
           // Atualiza UI
