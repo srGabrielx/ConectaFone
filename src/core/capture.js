@@ -20,37 +20,6 @@ export class ScreenAudioCapture {
   }
 
   /**
-   * Lista dispositivos de áudio disponíveis e filtra dispositivos de sistema (Stereo Mix, What U Hear, etc.)
-   */
-  static async getSystemAudioDevices() {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter(device => device.kind === 'audioinput');
-      
-      // Filtra dispositivos que provavelmente são de áudio do sistema
-      const systemAudioDevices = audioInputs.filter(device => {
-        const label = device.label.toLowerCase();
-        return label.includes('stereo mix') || 
-               label.includes('what u hear') || 
-               label.includes('mixagem') ||
-               label.includes('saida') ||
-               label.includes('output') ||
-               label.includes('wave out') ||
-               label.includes('system audio');
-      });
-
-      return {
-        all: audioInputs,
-        system: systemAudioDevices,
-        hasSystemAudio: systemAudioDevices.length > 0
-      };
-    } catch (err) {
-      console.error('[Capture] Erro ao enumerar dispositivos:', err);
-      return { all: [], system: [], hasSystemAudio: false };
-    }
-  }
-
-  /**
    * Retorna as constraints padrão de áudio Studio HD (Sem filtros de voz/AEC)
    */
   static getStudioAudioConstraints(deviceId = null) {
@@ -64,7 +33,7 @@ export class ScreenAudioCapture {
   }
 
   /**
-   * Captura de Áudio do Sistema (usando dispositivos de áudio do sistema - Stereo Mix, etc.)
+   * Captura de Áudio do Sistema (usando getDisplayMedia direto)
    */
   async startSystemAudioCapture(onEndedCallback) {
     this.stopCapture();
@@ -78,86 +47,86 @@ export class ScreenAudioCapture {
       return this.startDeviceAudioCapture(null, onEndedCallback);
     }
 
-    // Tenta capturar usando dispositivos de áudio do sistema (Stereo Mix, What U Hear, etc.)
-    console.log('[Capture] Buscando dispositivos de áudio do sistema...');
-    const devices = await ScreenAudioCapture.getSystemAudioDevices();
-    
-    if (devices.hasSystemAudio) {
-      console.log('[Capture] Dispositivos de áudio do sistema encontrados:', devices.system.map(d => d.label));
-      
-      // Tenta usar o primeiro dispositivo de áudio do sistema encontrado
-      try {
-        const systemDeviceId = devices.system[0].deviceId;
-        console.log('[Capture] Usando dispositivo de sistema:', devices.system[0].label);
-        return this.startDeviceAudioCapture(systemDeviceId, onEndedCallback);
-      } catch (err) {
-        console.warn('[Capture] Falha ao usar dispositivo de sistema:', err);
-      }
-    } else {
-      console.warn('[Capture] Nenhum dispositivo de áudio do sistema encontrado (Stereo Mix, What U Hear, etc.)');
-      console.log('[Capture] Dispositivos disponíveis:', devices.all.map(d => d.label));
-    }
-
-    // Fallback: Tenta captura via getDisplayMedia (funciona apenas com guias do Chrome)
-    console.log('[Capture] Tentando captura via getDisplayMedia (apenas guias)...');
+    // Usa getDisplayMedia com hints avançados para captura de áudio global do sistema
     let rawStream = null;
 
     try {
       const displayConstraints = {
-        video: true,
+        video: { displaySurface: "monitor" },
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false
+          autoGainControl: false,
+          restrictOwnAudio: false
         },
-        systemAudio: 'include',
-        selfBrowserSurface: 'exclude',
-        surfaceSwitching: 'exclude',
-        monitorTypeSurfaces: 'include',
-        suppressLocalAudioPlayback: false
+        systemAudio: "include",
+        windowAudio: "system",
+        monitorTypeSurfaces: "include",
+        preferCurrentTab: false,
+        selfBrowserSurface: "exclude",
+        surfaceSwitching: "include"
       };
-      console.log('[Capture] Tentando captura com constraints completas...');
+      console.log('[CAPTURE] Solicitando captura de tela/sistema com constraints completas...');
       rawStream = await navigator.mediaDevices.getDisplayMedia(displayConstraints);
     } catch (err) {
-      console.warn('[Capture] Fallback getDisplayMedia falhou:', err.name, err.message);
+      if (err.name === 'NotAllowedError') {
+        console.log('[CAPTURE] Usuário cancelou ou negou permissão');
+        throw err;
+      }
       
-      // Se falhar, usa captura de dispositivo padrão
-      console.log('[Capture] Usando captura de dispositivo padrão como fallback final...');
-      return this.startDeviceAudioCapture(null, onEndedCallback);
+      console.warn('[CAPTURE] Tentativa inicial com hints avançados falhou, tentando fallback compatível:', err.name);
+      try {
+        rawStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          },
+          systemAudio: "include"
+        });
+      } catch (fallbackErr) {
+        console.error('[CAPTURE] Erro fatal ao abrir seleção de tela:', fallbackErr.name, fallbackErr.message);
+        throw fallbackErr;
+      }
     }
 
-    const audioTracks = rawStream.getAudioTracks();
+    const videoTrack = rawStream.getVideoTracks()[0];
+    const audioTrack = rawStream.getAudioTracks()[0];
+    const surface = videoTrack?.getSettings()?.displaySurface;
+    
+    console.table({
+      surface: videoTrack?.getSettings()?.displaySurface,
+      audioLabel: audioTrack?.label,
+      sampleRate: audioTrack?.getSettings()?.sampleRate,
+      channels: audioTrack?.getSettings()?.channelCount,
+      audioReady: audioTrack?.readyState,
+      audioMuted: audioTrack?.muted
+    });
 
-    // Verificação de superfície sem áudio (ex: Usuário selecionou "Janela" ou desmarcou a caixa)
-    if (audioTracks.length === 0) {
+    // Verificação de áudio compartilhado
+    if (!audioTrack) {
+      console.warn('[Capture] Nenhuma track de áudio obtida - usuário não marcou compartilhar áudio');
       rawStream.getTracks().forEach(t => t.stop());
-      const error = new Error('SURFACE_WITHOUT_AUDIO');
-      error.code = 'SURFACE_WITHOUT_AUDIO';
+      const error = new Error("SYSTEM_AUDIO_NOT_SHARED");
+      error.code = "SYSTEM_AUDIO_NOT_SHARED";
       throw error;
     }
 
     this.stream = rawStream;
-    this.audioTrack = audioTracks[0];
-    
-    console.log('[Capture] Áudio track obtida:', this.audioTrack);
-    console.log('[Capture] Track enabled:', this.audioTrack.enabled);
-    console.log('[Capture] Track readyState:', this.audioTrack.readyState);
-    console.log('[Capture] Track settings:', this.audioTrack.getSettings());
-    
-    // Paramos a track de vídeo imediatamente se não for necessária para economizar banda/bateria
-    const videoTracks = rawStream.getVideoTracks();
-    if (videoTracks.length > 0) {
-      this.videoTrack = videoTracks[0];
-      // Mantemos a track de vídeo ativa em background apenas para monitorar evento de cancelamento da barra
+    this.videoTrack = videoTrack;
+    this.audioTrack = audioTrack;
+    this.audioTrack.enabled = true;
+
+    // Mantemos a captura original viva (videoTrack ativo) apenas para controle de encerramento
+    if (this.videoTrack) {
       this.videoTrack.onended = () => {
-        console.log('[Capture] Track de vídeo encerrada pelo usuário');
         this.stopCapture();
         if (onEndedCallback) onEndedCallback();
       };
     }
 
     this.audioTrack.onended = () => {
-      console.log('[Capture] Track de áudio encerrada');
       this.stopCapture();
       if (onEndedCallback) onEndedCallback();
     };
@@ -173,12 +142,16 @@ export class ScreenAudioCapture {
       console.warn('[Analyser Attach Error]:', e);
     }
 
-    // Cria MediaStream direto com a faixa de áudio original do Windows
-    const cleanAudioStream = new MediaStream([this.audioTrack]);
+    // A sala recebe EXCLUSIVAMENTE áudio limpo, enquanto o vídeo pode ser renderizado localmente
+    const systemAudioStream = new MediaStream([this.audioTrack]);
+    const videoStream = this.videoTrack ? new MediaStream([this.videoTrack]) : null;
 
     return {
-      stream: cleanAudioStream,
+      stream: systemAudioStream,
+      videoStream: videoStream,
       analyser: this.analyser,
+      captureSurface: surface,
+      isSystemAudio: true,
       isMobileFallback: false
     };
   }
@@ -197,18 +170,16 @@ export class ScreenAudioCapture {
         audio: ScreenAudioCapture.getStudioAudioConstraints(deviceId),
         video: false
       };
-      console.log('[Capture] Tentando captura com constraints Studio HD...');
       rawStream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (err) {
-      console.warn('[Capture] Fallback 1 falhou:', err.name, err.message);
-      
-      // Tenta 2: Constraints permissivas
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        throw err;
+      }
+      // Tenta 2: Constraints permissivas básicas
       try {
-        console.log('[Capture] Tentando fallback para getUserMedia básico...');
         rawStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch (err2) {
-        console.error('[Capture] Todas as tentativas de captura de dispositivo falharam:', err2);
-        throw new Error('Could not start audio source: ' + (err2.message || err2.name));
+        throw err2;
       }
     }
 
@@ -220,13 +191,7 @@ export class ScreenAudioCapture {
     this.stream = rawStream;
     this.audioTrack = audioTracks[0];
 
-    console.log('[Capture] Áudio track de dispositivo obtida:', this.audioTrack);
-    console.log('[Capture] Track enabled:', this.audioTrack.enabled);
-    console.log('[Capture] Track readyState:', this.audioTrack.readyState);
-    console.log('[Capture] Track settings:', this.audioTrack.getSettings());
-
     this.audioTrack.onended = () => {
-      console.log('[Capture] Track de áudio de dispositivo encerrada');
       this.stopCapture();
       if (onEndedCallback) onEndedCallback();
     };

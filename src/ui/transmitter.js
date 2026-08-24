@@ -25,6 +25,7 @@ export class TransmitterUI {
     this.hostCaptureActive = document.getElementById('hostCaptureActive');
     this.hostCaptureStatusText = document.getElementById('hostCaptureStatusText');
     this.hostVisualizerCanvas = document.getElementById('hostVisualizerCanvas');
+    this.hostVideoPreview = document.getElementById('hostVideoPreview');
 
     this.visualizer = null;
   }
@@ -35,26 +36,17 @@ export class TransmitterUI {
     const roomCode = this.webrtcManager.generateRoomCode();
     this.roomCodeText.textContent = roomCode;
 
-    // Se estiver em localhost, sugere o IP da rede local para o celular conseguir abrir
-    let baseUrl = window.location.origin;
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      baseUrl = `http://${window.location.hostname}:${window.location.port || '3000'}`;
-    }
-
+    // Utiliza a origem atual (ex: Cloudflare Tunnel https://...trycloudflare.com ou IP/Domínio)
+    const baseUrl = window.location.origin;
     const fullUrl = `${baseUrl}/?room=${roomCode}`;
     this.shareLinkInput.value = fullUrl;
 
     await ShareManager.renderQRCode(this.qrContainer, fullUrl);
 
-    // Verifica disponibilidade de Stereo Mix
-    await this.checkSystemAudioSupport();
-
-    // Stream de áudio inicial silencioso para handshake WebRTC
-    const silentStream = this.audioEngine.createSilentStream();
-
+    // Inicializa o host sem stream inicial - vai esperar o usuário iniciar captura
     await this.webrtcManager.initHost(
       roomCode,
-      silentStream,
+      null, // Sem stream inicial - vai ser adicionado quando usuário iniciar captura
       (count) => {
         this.connectedPeersBadge.textContent = `${count} celular${count === 1 ? '' : 'es'} conectado${count === 1 ? '' : 's'}`;
       },
@@ -66,60 +58,32 @@ export class TransmitterUI {
     this.setupCaptureEvents();
   }
 
-  async checkSystemAudioSupport() {
-    try {
-      const devices = await this.screenCapture.constructor.getSystemAudioDevices();
-      
-      if (!devices.hasSystemAudio) {
-        console.warn('[Transmitter] Stereo Mix não detectado');
-        
-        // Verifica se está no Windows
-        const isWindows = navigator.platform.includes('Win');
-        
-        if (isWindows) {
-          // Adiciona aviso visual na interface com instruções
-          const warningDiv = document.createElement('div');
-          warningDiv.className = 'bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs px-3 py-2 rounded-lg mb-3';
-          warningDiv.innerHTML = `
-            <strong>⚠️ Stereo Mix não detectado</strong><br>
-            Para capturar TODO o som do sistema:<br>
-            1. Abra "Configurações de Som" do Windows<br>
-            2. Vá em "Gravação" > "Mostrar dispositivos desativados"<br>
-            3. Ative o "Stereo Mix" e defina como padrão
-          `;
-          
-          if (this.startSystemAudioBtn) {
-            this.startSystemAudioBtn.parentNode.insertBefore(warningDiv, this.startSystemAudioBtn);
-          }
-        }
-      } else {
-        console.log('[Transmitter] Stereo Mix detectado:', devices.system.map(d => d.label));
-      }
-    } catch (err) {
-      console.error('[Transmitter] Erro ao verificar suporte de áudio do sistema:', err);
-    }
-  }
-
   setupCaptureEvents() {
     // 1. Transmitir TODO o Som do PC (Sistema / Tela Inteira)
     if (this.startSystemAudioBtn) {
       this.startSystemAudioBtn.addEventListener('click', async () => {
         try {
           console.log('[Transmitter] Iniciando captura de áudio do sistema...');
-          const { stream, analyser, isMobileFallback } = await this.screenCapture.startSystemAudioCapture(() => {
+          const { stream, videoStream, analyser, captureSurface, isMobileFallback } = await this.screenCapture.startSystemAudioCapture(() => {
             this.handleCaptureStopped();
           });
 
           console.log('[Transmitter] Stream capturado com sucesso:', stream);
-          console.log('[Transmitter] Tracks no stream:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, label: t.label })));
+          console.log('[Transmitter] Surface capturada:', captureSurface);
           
           this.webrtcManager.updateHostStream(stream, true);
           this.hostCaptureIdle.style.display = 'none';
           this.hostCaptureActive.style.display = 'block';
           
+          const surfaceName = captureSurface === 'monitor' ? 'Tela Inteira' : (captureSurface === 'window' ? 'Janela' : (captureSurface === 'browser' ? 'Guia' : 'Sistema'));
           this.hostCaptureStatusText.textContent = isMobileFallback
             ? '● Transmitindo Áudio do Microfone/Linha (Dispositivo Móvel)'
-            : '● Transmitindo Áudio do Sistema em Tempo Real!';
+            : `● Transmitindo Áudio do Sistema (${surfaceName}) em Tempo Real!`;
+
+          if (this.hostVideoPreview && videoStream) {
+            this.hostVideoPreview.srcObject = videoStream;
+            this.hostVideoPreview.style.display = 'block';
+          }
 
           if (this.hostVisualizerCanvas && analyser) {
             this.visualizer = new AudioVisualizer(this.hostVisualizerCanvas, analyser);
@@ -128,31 +92,17 @@ export class TransmitterUI {
         } catch (err) {
           console.error('[Transmitter] Erro na captura:', err);
           
-          if (err.code === 'SURFACE_WITHOUT_AUDIO' || err.message === 'SURFACE_WITHOUT_AUDIO') {
+          if (err.code === 'SYSTEM_AUDIO_NOT_SHARED' || err.code === 'SURFACE_WITHOUT_AUDIO' || err.message === 'SYSTEM_AUDIO_NOT_SHARED') {
             alert(
-              "⚠️ Áudio Não Detectado na Superfície Selecionada!\n\n" +
-              "O Windows e os navegadores não suportam captura de áudio direto de 'Janelas Individuais'.\n\n" +
-              "👉 Como resolver:\n" +
-              "1. Clique novamente em INICIAR.\n" +
-              "2. Escolha 'Tela Inteira' ou 'Guia do Chrome'.\n" +
-              "3. Certifique-se de MARCAR a caixa 'Compartilhar áudio do sistema'."
+              "Áudio do sistema não foi compartilhado.\n\n" +
+              "1. Abra a aba Tela inteira\n" +
+              "2. Selecione seu monitor\n" +
+              "3. Ative Compartilhar áudio do sistema\n" +
+              "4. Clique em Compartilhar"
             );
           } else if (err.name === 'NotAllowedError') {
             // Usuário cancelou - não mostrar alerta
             console.log('[Transmitter] Usuário cancelou a seleção de tela');
-          } else if (err.message && err.message.includes('Could not start audio source')) {
-            alert(
-              "❌ Erro ao iniciar fonte de áudio\n\n" +
-              "Para capturar TODO o som do sistema, você precisa habilitar o 'Stereo Mix' no Windows:\n\n" +
-              "📋 Como habilitar Stereo Mix:\n" +
-              "1. Clique com botão direito no ícone de volume > 'Configurações de som'\n" +
-              "2. Vá em 'Gerenciar dispositivos de som' > clique na aba 'Gravação'\n" +
-              "3. Clique com botão direito em área vazia > 'Mostrar dispositivos desativados'\n" +
-              "4. Clique com botão direito em 'Stereo Mix' > 'Ativar'\n" +
-              "5. Clique com botão direito em 'Stereo Mix' > 'Definir como dispositivo padrão'\n\n" +
-              "🔄 Depois recarregue esta página e tente novamente!\n\n" +
-              "💡 Alternativa: Use o botão 'TRANSMITIR VIA MICROFONE/LINHA' abaixo"
-            );
           } else {
             alert("Não foi possível iniciar a captura: " + (err.message || err.name));
           }
@@ -182,20 +132,12 @@ export class TransmitterUI {
         } catch (err) {
           console.error('[Transmitter] Erro na captura de dispositivo:', err);
           
-          if (err.name === 'NotAllowedError') {
-            alert("Permissão de microfone negada. Verifique as configurações do navegador.");
-          } else if (err.name === 'NotFoundError') {
-            alert("Nenhum dispositivo de áudio encontrado. Verifique se seu microfone/linha está conectado.");
-          } else if (err.message && err.message.includes('Could not start audio source')) {
-            alert(
-              "❌ Erro ao iniciar dispositivo de áudio\n\n" +
-              "👉 Soluções:\n" +
-              "1. Verifique se o microfone/entrada de linha está conectado\n" +
-              "2. Verifique as permissões do navegador\n" +
-              "3. Tente usar 'TRANSMITIR TODO O SOM DO PC' como alternativa"
-            );
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            alert("⚠️ Permissão Necessária!\n\nO navegador precisa de permissão de Áudio/Microfone para transmitir.\n\n👉 Clique no ícone de cadeado/configurações ao lado do link na barra de endereços do navegador e marque 'Permitir Microfone/Áudio'.");
+          } else if (err.name === 'NotFoundError' || err.message === 'NO_AUDIO_DEVICE_FOUND') {
+            alert("Nenhum dispositivo de áudio/microfone encontrado. Verifique se seu microfone ou mixagem estéreo está conectado e habilitado.");
           } else {
-            alert("Não foi possível acessar a Mixagem Estéreo. Experimente o botão 'TRANSMITIR TODO O SOM DO PC (TELA INTEIRA)' acima. Erro: " + (err.message || err.name));
+            alert("Não foi possível acessar o áudio do dispositivo. Tente usar o botão 'TRANSMITIR TODO O SOM DO PC (TELA INTEIRA)' acima. Detalhes: " + (err.message || err.name));
           }
         }
       });
@@ -215,8 +157,12 @@ export class TransmitterUI {
       this.visualizer.stop();
       this.visualizer = null;
     }
-    const silentStream = this.audioEngine.createSilentStream();
-    this.webrtcManager.updateHostStream(silentStream, false);
+    if (this.hostVideoPreview) {
+      this.hostVideoPreview.srcObject = null;
+      this.hostVideoPreview.style.display = 'none';
+    }
+    // Quando a captura para, para de transmitir completamente (não substitui por stream silencioso)
+    this.webrtcManager.updateHostStream(null, false);
     this.hostCaptureActive.style.display = 'none';
     this.hostCaptureIdle.style.display = 'block';
   }

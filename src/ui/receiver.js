@@ -50,6 +50,13 @@ export class ReceiverUI {
     this.rxVolumeSlider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
       this.rxVolumeVal.textContent = Math.round(val * 100) + '%';
+      
+      // Controla volume diretamente no elemento de áudio
+      if (this.audioElement) {
+        this.audioElement.volume = val;
+      }
+      
+      // Também controla no Web Audio para o visualizador
       this.audioEngine.setVolume(val);
     });
 
@@ -160,64 +167,77 @@ export class ReceiverUI {
     }
 
     try {
-      // 1. Prepara contexto de áudio em resposta ao gesto de clique
-      const ctx = await this.audioEngine.ensureContext();
+      console.log('[Receiver] Iniciando conexão com sala:', targetRoom);
       
+      // Cria elemento de áudio simples e direto
       this.audioElement = document.getElementById('rxNativeAudioPlayer');
       if (!this.audioElement) {
         this.audioElement = document.createElement('audio');
         this.audioElement.id = 'rxNativeAudioPlayer';
         this.audioElement.autoplay = true;
-        this.audioElement.playsInline = true;
-        this.audioElement.setAttribute('playsinline', 'true');
-        this.audioElement.setAttribute('webkit-playsinline', 'true');
+        this.audioElement.controls = false;
+        this.audioElement.volume = parseFloat(this.rxVolumeSlider.value);
         document.body.appendChild(this.audioElement);
+      } else {
+        this.audioElement.volume = parseFloat(this.rxVolumeSlider.value);
       }
 
-      // CRUCIAL: O elemento nativo fica MUTADO para evitar VOZ DUPLICADA / ECO
-      // O som audível sai 100% pelo grafo Web Audio API (Master Gain + Delay)
-      this.audioElement.muted = true;
-      this.audioElement.volume = 0.0;
-
+      // Prepara contexto de áudio para o visualizador apenas
+      const ctx = await this.audioEngine.ensureContext();
       const { inputNode, analyser } = this.audioEngine.setupReceiverPipeline(
         parseFloat(this.rxVolumeSlider.value),
         parseInt(this.rxDelaySlider.value)
       );
 
-      // 2. Cria faixa de chamada ativa
-      const callStream = this.audioEngine.createSilentStream();
-
-      // 3. Conecta via WebRTC
+      console.log('[Receiver] Conectando via WebRTC...');
       const { call, dataConn } = await this.webrtcManager.connectReceiver(
         targetRoom,
-        callStream,
+        null, // Sem stream inicial - apenas recebe áudio
         async (remoteStream) => {
-          console.log('[Receiver] Áudio recebido. Processando canal único limpo sem eco...');
-          console.log('[Receiver] Stream recebido:', remoteStream);
-          console.log('[Receiver] Tracks no stream:', remoteStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, label: t.label })));
+          console.log('[RECEIVER] Stream recebido com sucesso!');
+          console.log('[RECEIVER] Tracks:', remoteStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
 
-          // O elemento nativo apenas recebe o stream para manter a decodificação ativa no OS
-          this.audioElement.srcObject = remoteStream;
-          try {
-            await this.audioElement.play();
-            console.log('[Receiver] Elemento de áudio nativo iniciado com sucesso');
-          } catch (e) {
-            console.error('[Receiver] Erro ao iniciar elemento de áudio nativo:', e);
+          // Diagnóstico da track recebida
+          remoteStream.getTracks().forEach(track => {
+            if (track.kind === 'audio') {
+              console.log('[RECEIVER TRACK]', {
+                kind: track.kind,
+                label: track.label,
+                muted: track.muted,
+                readyState: track.readyState
+              });
+            }
+          });
+
+          // Verifica se o stream tem áudio real
+          const audioTracks = remoteStream.getAudioTracks();
+          if (audioTracks.length === 0) {
+            console.warn('[RECEIVER] Stream recebido sem tracks de áudio!');
+            alert('O stream recebido não contém áudio. Verifique se o transmissor iniciou a captura.');
+            return;
           }
 
-          // Conecta ÚNICA e EXCLUSIVAMENTE ao grafo Web Audio para som limpo sem duplicação
+          // Conecta diretamente ao elemento de áudio
+          this.audioElement.srcObject = remoteStream;
+          
           try {
-            const audioTracks = remoteStream.getAudioTracks();
+            await this.audioElement.play();
+            console.log('[RECEIVER] Áudio iniciado com sucesso');
+          } catch (e) {
+            console.error('[RECEIVER] Erro ao iniciar áudio:', e);
+            alert('Erro ao reproduzir áudio. Verifique as permissões do navegador.');
+            return;
+          }
+
+          // Conecta ao visualizador apenas (sem afetar o áudio)
+          try {
             if (audioTracks.length > 0) {
-              console.log('[Receiver] Conectando track de áudio ao grafo Web Audio...');
               const source = ctx.createMediaStreamSource(remoteStream);
               source.connect(inputNode);
-              console.log('[Receiver] Conexão Web Audio estabelecida com sucesso');
-            } else {
-              console.warn('[Receiver] Nenhuma track de áudio encontrada no stream remoto');
+              console.log('[RECEIVER] Visualizador conectado');
             }
           } catch (err) {
-            console.error('[Web Audio Graph Error]:', err);
+            console.warn('[RECEIVER] Erro no visualizador:', err);
           }
 
           // Atualiza UI
@@ -228,40 +248,40 @@ export class ReceiverUI {
           this.pwaManager.requestWakeLock();
           this.pwaManager.setupMediaSession();
 
-          // Monitor de latência em tempo real
-          this.startLatencyMonitor();
-
-          // Visualizador 60 FPS
+          // Inicia visualizador
           this.visualizer = new AudioVisualizer(this.rxVisualizerCanvas, analyser);
           this.visualizer.start();
 
-          // Auto-Sincronização inicial automática
-          setTimeout(() => this.autoSynchronize(), 800);
+          // Monitor de latência
+          this.startLatencyMonitor();
         },
         (msg) => {
+          console.log('[Receiver] Mensagem recebida:', msg);
           if (msg.type === 'HOST_STATUS') {
             if (this.rxStatusMessage) {
               if (msg.isTransmitting) {
-                this.rxStatusMessage.textContent = '● Transmitindo Áudio do PC ao Vivo!';
+                this.rxStatusMessage.textContent = '● Recebendo Áudio do PC!';
                 this.rxStatusMessage.className = 'text-sm font-bold text-green-neon flex items-center gap-1.5';
               } else {
-                this.rxStatusMessage.textContent = '⏳ Conectado! Clique no PC em "TRANSMITIR TODO O SOM DO PC"';
+                this.rxStatusMessage.textContent = '⏳ Conectado! Aguardando transmissão...';
                 this.rxStatusMessage.className = 'text-sm font-bold text-amber-300 flex items-center gap-1.5';
               }
             }
           }
         },
         () => {
+          console.log('[Receiver] Conexão encerrada');
           this.stopListening();
         }
       );
 
       this.activeCall = call;
       this.dataConn = dataConn;
+      console.log('[Receiver] Conexão estabelecida com sucesso');
 
     } catch (err) {
+      console.error('[Receiver] Erro na conexão:', err);
       alert("Não foi possível conectar à sala " + targetRoom + ".\n\nVerifique se o computador está com o ConectaFone aberto na mesma sala.");
-      console.error(err);
     }
   }
 

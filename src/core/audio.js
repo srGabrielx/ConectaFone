@@ -17,7 +17,7 @@ export class AudioEngine {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioContextClass({
         latencyHint: 'interactive',
-        sampleRate: 44100
+        sampleRate: 48000
       });
     }
     if (this.ctx.state === 'suspended') {
@@ -29,7 +29,7 @@ export class AudioEngine {
   setupReceiverPipeline(volume = 1.0, delayMs = 0) {
     if (!this.ctx) {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new AudioContextClass({ latencyHint: 'interactive', sampleRate: 44100 });
+      this.ctx = new AudioContextClass({ latencyHint: 'interactive', sampleRate: 48000 });
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
@@ -68,27 +68,8 @@ export class AudioEngine {
   }
 
   /**
-   * Cria uma faixa de áudio ativa para inicializar o canal WebRTC
-   */
-  createSilentStream() {
-    if (!this.ctx) {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new AudioContextClass();
-    }
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.00001, this.ctx.currentTime); // quase inaudível mas com frames PCM ativos
-    const dest = this.ctx.createMediaStreamDestination();
-
-    osc.connect(gain);
-    gain.connect(dest);
-    osc.start();
-
-    return dest.stream;
-  }
-
-  /**
    * Toca um bip de teste no celular para confirmar funcionamento do alto-falante
+   * Esta função é apenas para teste de alto-falante, não para substituir captura
    */
   playTestBeep() {
     if (!this.ctx) {
@@ -116,46 +97,5 @@ export class AudioEngine {
     osc.stop(this.ctx.currentTime + 0.4);
   }
 
-  /**
-   * Stream sintético para teste no Host
-   */
-  createSynthStream() {
-    if (!this.ctx) {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new AudioContextClass();
-    }
-    this.stopSynth();
 
-    const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    const dest = this.ctx.createMediaStreamDestination();
-
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(440, this.ctx.currentTime); // A4
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(554.37, this.ctx.currentTime); // C#5
-
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-
-    osc1.connect(gain);
-    osc2.connect(gain);
-    gain.connect(dest);
-
-    osc1.start();
-    osc2.start();
-
-    this.synthOscillators = [osc1, osc2];
-    return dest.stream;
-  }
-
-  stopSynth() {
-    this.synthOscillators.forEach(osc => {
-      try {
-        osc.stop();
-        osc.disconnect();
-      } catch (e) {}
-    });
-    this.synthOscillators = [];
-  }
 }

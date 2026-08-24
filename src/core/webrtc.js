@@ -27,13 +27,36 @@ const ICE_SERVERS = [
 ];
 
 /**
- * Aplica parâmetros de alta fidelidade no SDP (Opus HD Stereo + In-band FEC + 128kbps)
+ * Aplica parâmetros de alta fidelidade no SDP (Opus HD Stereo VBR + In-band FEC + 256kbps)
  */
 function enhanceOpusSDP(sdp) {
   if (!sdp) return sdp;
-  return sdp.replace(/a=fmtp:111 ((?:(?!minptime=).)*)\r\n/g, (match, params) => {
-    return `a=fmtp:111 ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=128000;useinbandfec=1;cbr=1\r\n`;
-  });
+
+  // Encontra dinamicamente o payload type do Opus (geralmente 111, mas pode variar)
+  const opusMatch = sdp.match(/a=rtpmap:(\d+) opus\/48000\/2/i);
+  const pt = opusMatch ? opusMatch[1] : '111';
+
+  const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\\r\\n`, 'g');
+
+  if (fmtpRegex.test(sdp)) {
+    return sdp.replace(new RegExp(`a=fmtp:${pt} (.*)\\r\\n`, 'g'), (match, params) => {
+      // Remove parâmetros existentes para evitar duplicação
+      const cleanParams = params
+        .replace(/stereo=\d;?/g, '')
+        .replace(/sprop-stereo=\d;?/g, '')
+        .replace(/maxaveragebitrate=\d+;?/g, '')
+        .replace(/useinbandfec=\d;?/g, '')
+        .replace(/cbr=\d;?/g, '')
+        .trim();
+      return `a=fmtp:${pt} ${cleanParams ? cleanParams + ';' : ''}stereo=1;sprop-stereo=1;maxaveragebitrate=256000;useinbandfec=1\r\n`;
+    });
+  } else {
+    // Se não existir linha fmtp para o Opus, adiciona logo após a linha rtpmap
+    return sdp.replace(
+      new RegExp(`(a=rtpmap:${pt} opus\\/48000\\/2\\r\\n)`, 'i'),
+      `$1a=fmtp:${pt} minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=256000\r\n`
+    );
+  }
 }
 
 export class WebRTCManager {
@@ -44,6 +67,7 @@ export class WebRTCManager {
     this.currentStream = null;
     this.isTransmittingAudio = false;
     this.roomCode = '';
+    this.audioTransceivers = new Map(); // Mapa para armazenar transceivers de áudio por chamada
   }
 
   generateRoomCode() {
@@ -54,6 +78,31 @@ export class WebRTCManager {
     }
     this.roomCode = code;
     return code;
+  }
+
+  createSilentStream() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContextClass({
+        sampleRate: 48000
+      });
+      const destination = ctx.createMediaStreamDestination();
+      destination.channelCount = 2;
+      destination.channelCountMode = 'explicit';
+      destination.channelInterpretation = 'speakers';
+
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = 0; // Áudio 100% silencioso em estéreo
+      oscillator.connect(gainNode);
+      gainNode.connect(destination);
+      oscillator.start();
+
+      return destination.stream;
+    } catch (e) {
+      console.warn('[WebRTC Host] Falha ao criar silent stream estéreo:', e);
+      return null;
+    }
   }
 
   initHost(roomCode, initialStream, onPeerCountChange, onClientMessage) {
@@ -96,8 +145,14 @@ export class WebRTCManager {
 
     // Chamadas de Áudio WebRTC
     this.peer.on('call', (call) => {
-      console.log('[WebRTC Host] Nova chamada recebida. Configurando Opus HD e enviando áudio...');
-      call.answer(this.currentStream, {
+      console.log('[WebRTC Host] Nova chamada recebida. Configurando stream e Opus HD...');
+      
+      // Garante que SEMPRE haverá um stream para responder (mesmo silencioso)
+      // Isso resolve o bug onde o ouvinte não consegue entrar na sala se o host não estiver transmitindo.
+      let answerStream = this.currentStream || this.createSilentStream();
+
+      // Responde a chamada com o stream atual ou o silencioso
+      call.answer(answerStream, {
         sdpTransform: enhanceOpusSDP
       });
       this.activeCalls.push(call);
@@ -105,6 +160,7 @@ export class WebRTCManager {
 
       call.on('close', () => {
         this.activeCalls = this.activeCalls.filter(c => c !== call);
+        this.audioTransceivers.delete(call);
         if (onPeerCountChange) onPeerCountChange(this.activeCalls.length);
       });
     });
@@ -141,47 +197,81 @@ export class WebRTCManager {
   }
 
   updateHostStream(newStream, isSystemAudio = false) {
-    console.log('[WebRTC] Atualizando stream:', isSystemAudio ? 'ÁUDIO REAL' : 'STREAM SILENCIOSO');
+    console.log('[WEBRTC] updateHostStream chamado:', isSystemAudio ? 'ÁUDIO REAL' : 'SEM ÁUDIO');
     this.currentStream = newStream;
     this.isTransmittingAudio = isSystemAudio;
-    const newTrack = newStream ? newStream.getAudioTracks()[0] : null;
+    
+    // Se newStream for nulo (captura parada), usa uma track silenciosa para manter a conexão WebRTC ativa
+    const targetTrack = newStream ? newStream.getAudioTracks()[0] : (this.createSilentStream()?.getAudioTracks()[0] || null);
 
-    if (newTrack) {
-      console.log('[WebRTC] Nova track de áudio:', newTrack.label, newTrack.enabled, newTrack.readyState);
-      
-      this.activeCalls.forEach((call, index) => {
-        try {
-          const pc = call.peerConnection;
-          if (!pc) {
-            console.warn(`[WebRTC] Chamada ${index} sem peerConnection`);
-            return;
-          }
-
-          const senders = pc.getSenders();
-          const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
-
-          if (audioSender) {
-            console.log(`[WebRTC] Substituindo track na chamada ${index}...`);
-            // Substituição atômica sem necessidade de nova negociação SDP
-            audioSender.replaceTrack(newTrack).then(() => {
-              console.log(`[WebRTC] Track substituída com sucesso na chamada ${index}`);
-            }).catch(err => {
-              console.error(`[WebRTC] Erro ao substituir track na chamada ${index}:`, err);
-            });
-          } else {
-            console.log(`[WebRTC] Nenhum audio sender encontrado na chamada ${index}, adicionando nova track...`);
-            pc.addTrack(newTrack, newStream);
-          }
-        } catch (e) {
-          console.error('[WebRTC Track Replace Error]:', e);
+    this.activeCalls.forEach((call, index) => {
+      try {
+        const pc = call.peerConnection;
+        if (!pc) {
+          console.warn(`[WEBRTC] Chamada ${index} sem peerConnection`);
+          return;
         }
-      });
-      
-      if (this.activeCalls.length === 0) {
-        console.log('[WebRTC] Nenhuma chamada ativa para atualizar stream');
+
+        // Localiza o RTCRtpSender de áudio da chamada
+        let audioSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+        
+        // Se a track anterior era nula, busca pelo transceiver de áudio
+        if (!audioSender) {
+           const transceivers = pc.getTransceivers();
+           const audioTransceiver = transceivers.find(t => 
+             t.receiver?.track?.kind === 'audio' || 
+             t.sender?.track?.kind === 'audio' || 
+             t.mid !== null
+           );
+           if (audioTransceiver) {
+              audioSender = audioTransceiver.sender;
+           } else if (pc.getSenders().length > 0) {
+              audioSender = pc.getSenders()[0];
+           }
+        }
+
+        if (audioSender && targetTrack) {
+          console.log(`[WEBRTC] Chamada ${index} - Substituindo audio track no RTCRtpSender...`);
+          audioSender.replaceTrack(targetTrack).then(async () => {
+            console.log(`[WEBRTC] Track substituída com sucesso na chamada ${index}`);
+
+            // Aplica bitrate máximo diretamente nos parâmetros do RTCRtpSender
+            try {
+              const params = audioSender.getParameters();
+              if (!params.encodings || !params.encodings.length) {
+                params.encodings = [{}];
+              }
+              params.encodings[0].maxBitrate = 256000;
+              await audioSender.setParameters(params);
+            } catch (pErr) {
+              console.warn('[WEBRTC] sender.setParameters notice:', pErr);
+            }
+
+            console.log('[WEBRTC AUDIO SENDER]', {
+              kind: audioSender.track?.kind ?? null,
+              label: audioSender.track?.label ?? null,
+              enabled: audioSender.track?.enabled ?? null,
+              muted: audioSender.track?.muted ?? null,
+              readyState: audioSender.track?.readyState ?? null
+            });
+          }).catch(err => {
+            console.error(`[WEBRTC] Erro ao substituir track na chamada ${index}:`, err);
+          });
+        } else if (targetTrack && pc.addTrack) {
+          console.log(`[WEBRTC] Chamada ${index} - Nenhum sender encontrado, adicionando track diretamente...`);
+          try {
+            pc.addTrack(targetTrack, newStream || this.createSilentStream());
+          } catch (e) {
+            console.warn('[WEBRTC] addTrack falhou:', e);
+          }
+        }
+      } catch (e) {
+        console.error('[WEBRTC Track Replace Error]:', e);
       }
-    } else {
-      console.warn('[WebRTC] Nenhuma track de áudio encontrada no novo stream');
+    });
+    
+    if (this.activeCalls.length === 0) {
+      console.log('[WEBRTC] Nenhuma chamada ativa para atualizar stream');
     }
 
     this.broadcastStatus(isSystemAudio);
@@ -210,6 +300,7 @@ export class WebRTCManager {
         });
 
         // 2. Audio Call com SDP Munging
+        // Se callStream for null, apenas recebe áudio (não envia)
         const call = rxPeer.call(targetPeerId, callStream, {
           sdpTransform: enhanceOpusSDP
         });
@@ -221,6 +312,7 @@ export class WebRTCManager {
         });
 
         call.on('close', () => {
+          console.log('[Receiver] Chamada fechada pelo host');
           if (onClosed) onClosed();
         });
 

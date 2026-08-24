@@ -146,7 +146,7 @@
               
               <p class="text-xs text-slate-400 mt-3 leading-relaxed">
                 Transmite <strong>qualquer som do dispositivo</strong>: Vídeos, Filmes, Músicas, Jogos ou Navegador.<br>
-                <span class="text-cyan-neon/90 font-medium">Funciona automaticamente com Stereo Mix habilitado no Windows.</span>
+                <span class="text-cyan-neon/90 font-medium">Ao clicar, selecione a fonte e marque "Compartilhar áudio do sistema".</span>
               </p>
 
               <div class="mt-4 pt-3 border-t border-white/10 w-full">
@@ -164,6 +164,9 @@
                 </span>
               </div>
               
+              <!-- Mini screen for video preview -->
+              <video id="hostVideoPreview" autoplay muted playsinline class="w-full max-w-sm rounded-lg border border-cyan-neon/30 bg-black/60 shadow-lg mb-3 object-contain" style="display: none;"></video>
+              
               <canvas id="hostVisualizerCanvas" class="w-full h-16 rounded-lg bg-black/50 mb-3"></canvas>
 
               <button id="stopCaptureBtn" class="bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 px-5 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer">
@@ -179,28 +182,23 @@
       <div class="md:col-span-5 flex flex-col gap-5">
         <section class="glass-card flex flex-col gap-4">
           <h3 class="text-sm font-extrabold text-cyan-neon uppercase tracking-wider">
-            Como Habilitar Stereo Mix (Windows)
+            Como Funciona
           </h3>
           
           <div class="space-y-3.5 text-xs text-slate-300 leading-relaxed">
             <div class="flex items-start gap-2.5">
               <div class="w-5 h-5 rounded-full bg-cyan-neon/10 border border-cyan-neon/40 text-cyan-neon flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</div>
-              <div><strong>Clique com botão direito</strong> no ícone de volume e selecione "Configurações de som".</div>
+              <div><strong>No PC:</strong> Clique em "TRANSMITIR TODO O SOM DO SISTEMA" e selecione a fonte de áudio.</div>
             </div>
 
             <div class="flex items-start gap-2.5">
               <div class="w-5 h-5 rounded-full bg-cyan-neon/10 border border-cyan-neon/40 text-cyan-neon flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</div>
-              <div><strong>Vá em "Gravação"</strong> e clique com botão direito em área vazia > "Mostrar dispositivos desativados".</div>
+              <div><strong>No Celular:</strong> Escaneie o QR Code ou abra o link, digite o código da sala e clique em "Ouvir Som".</div>
             </div>
 
             <div class="flex items-start gap-2.5">
               <div class="w-5 h-5 rounded-full bg-cyan-neon/10 border border-cyan-neon/40 text-cyan-neon flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</div>
-              <div><strong>Ative o "Stereo Mix"</strong> clicando com botão direito > "Ativar" > "Definir como dispositivo padrão".</div>
-            </div>
-
-            <div class="flex items-start gap-2.5">
-              <div class="w-5 h-5 rounded-full bg-cyan-neon/10 border border-cyan-neon/40 text-cyan-neon flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">4</div>
-              <div><strong>Recarregue esta página</strong> e clique em "TRANSMITIR TODO O SOM DO SISTEMA".</div>
+              <div><strong>Pronto!</strong> O áudio do PC será transmitido em tempo real para o celular.</div>
             </div>
           </div>
         </section>
