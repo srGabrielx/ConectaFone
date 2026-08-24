@@ -53,42 +53,16 @@ export class ScreenAudioCapture {
     try {
       const displayConstraints = {
         video: { displaySurface: "monitor" },
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          restrictOwnAudio: false
-        },
+        audio: true, 
         systemAudio: "include",
-        windowAudio: "system",
-        monitorTypeSurfaces: "include",
-        preferCurrentTab: false,
-        selfBrowserSurface: "exclude",
-        surfaceSwitching: "include"
+        surfaceSwitching: "include",
+        selfBrowserSurface: "exclude"
       };
-      console.log('[CAPTURE] Solicitando captura de tela/sistema com constraints completas...');
+      console.log('[CAPTURE] Solicitando captura de tela/sistema com constraints simplificadas...');
       rawStream = await navigator.mediaDevices.getDisplayMedia(displayConstraints);
     } catch (err) {
-      if (err.name === 'NotAllowedError') {
-        console.log('[CAPTURE] Usuário cancelou ou negou permissão');
-        throw err;
-      }
-      
-      console.warn('[CAPTURE] Tentativa inicial com hints avançados falhou, tentando fallback compatível:', err.name);
-      try {
-        rawStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          },
-          systemAudio: "include"
-        });
-      } catch (fallbackErr) {
-        console.error('[CAPTURE] Erro fatal ao abrir seleção de tela:', fallbackErr.name, fallbackErr.message);
-        throw fallbackErr;
-      }
+      console.error('[CAPTURE] Erro ao abrir seleção de tela/áudio:', err.name, err.message);
+      throw err;
     }
 
     const videoTrack = rawStream.getVideoTracks()[0];
