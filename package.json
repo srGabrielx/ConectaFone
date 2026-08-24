@@ -4,13 +4,11 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
-    "preview": "vite preview",
-    "deploy": "vercel"
+    "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1",
     "peerjs": "^1.5.4",
     "qrcode": "^1.5.4"
   },
@@ -19,7 +17,6 @@
     "autoprefixer": "^10.5.4",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
-    "vercel": "^41.3.2",
     "vite": "^6.0.0"
   }
 }

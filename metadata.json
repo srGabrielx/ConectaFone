@@ -1,0 +1,6 @@
+{
+  "name": "ConectaFone PRO",
+  "description": "Transmissão e recepção de áudio em tempo real com ultra-baixa latência via WebRTC P2P",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

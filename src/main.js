@@ -1,9 +1,8 @@
 /**
- * ConectaFone Pro - Application Entrypoint (Vite, Tailwind CSS & Vercel Analytics)
+ * ConectaFone Pro - Application Entrypoint (Vite & Tailwind CSS)
  */
 
 import './index.css';
-import { inject } from '@vercel/analytics';
 
 import { AudioEngine } from './core/audio.js';
 import { ScreenAudioCapture } from './core/capture.js';
@@ -12,9 +11,6 @@ import { PWAManager } from './core/pwa.js';
 
 import { TransmitterUI } from './ui/transmitter.js';
 import { ReceiverUI } from './ui/receiver.js';
-
-// Ativa métricas oficiais do Vercel Analytics
-inject();
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Core Services
