@@ -13,7 +13,6 @@ export class ReceiverUI {
     this.rxRoomInput = document.getElementById('rxRoomInput');
     this.rxStartBtn = document.getElementById('rxStartBtn');
     this.rxStopBtn = document.getElementById('rxStopBtn');
-    this.rxTestBeepBtn = document.getElementById('rxTestBeepBtn');
     this.rxAutoSyncBtn = document.getElementById('rxAutoSyncBtn');
     this.rxPresetMovie = document.getElementById('rxPresetMovie');
     this.rxPresetGaming = document.getElementById('rxPresetGaming');
@@ -79,12 +78,6 @@ export class ReceiverUI {
     this.rxStartBtn.addEventListener('click', () => this.startListening());
     this.rxStopBtn.addEventListener('click', () => this.stopListening());
     
-    if (this.rxTestBeepBtn) {
-      this.rxTestBeepBtn.addEventListener('click', () => {
-        this.audioEngine.playTestBeep();
-      });
-    }
-
     if (this.rxAutoSyncBtn) {
       this.rxAutoSyncBtn.addEventListener('click', () => this.autoSynchronize());
     }
@@ -192,12 +185,18 @@ export class ReceiverUI {
         this.audioElement.play().catch(() => {});
       } catch (e) {}
 
-      // Prepara contexto de áudio para o visualizador apenas
+      // Prepara pipeline WebAudio: Gain → Delay → Analyser → ctx.destination
+      // TODA a reprodução passa por aqui. O <audio> element não será usado para playback.
       const ctx = await this.audioEngine.ensureContext();
       const { inputNode, analyser } = this.audioEngine.setupReceiverPipeline(
         parseFloat(this.rxVolumeSlider.value),
         parseInt(this.rxDelaySlider.value)
       );
+
+      // Desbloqueia o AudioContext no iOS durante o evento de clique síncrono
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
 
       console.log('[Receiver] Conectando via WebRTC...');
       const { call, dataConn } = await this.webrtcManager.connectReceiver(
@@ -227,27 +226,14 @@ export class ReceiverUI {
             return;
           }
 
-          // Conecta diretamente ao elemento de áudio
-          this.audioElement.srcObject = remoteStream;
-          
+          // ÚNICO caminho de áudio: remoteStream → WebAudio → Gain → Delay → Analyser → alto-falante
+          // NÃO usamos audioElement.srcObject para evitar playback duplicado (eco/fase).
           try {
-            await this.audioElement.play();
-            console.log('[RECEIVER] Áudio iniciado com sucesso');
-          } catch (e) {
-            console.error('[RECEIVER] Erro ao iniciar áudio:', e);
-            alert('Erro ao reproduzir áudio. Verifique as permissões do navegador.');
-            return;
-          }
-
-          // Conecta ao visualizador apenas (sem afetar o áudio)
-          try {
-            if (audioTracks.length > 0) {
-              const source = ctx.createMediaStreamSource(remoteStream);
-              source.connect(inputNode);
-              console.log('[RECEIVER] Visualizador conectado');
-            }
+            const source = ctx.createMediaStreamSource(remoteStream);
+            source.connect(inputNode);
+            console.log('[RECEIVER] Pipeline WebAudio conectado: remoteStream → gain → delay → analyser → saída');
           } catch (err) {
-            console.warn('[RECEIVER] Erro no visualizador:', err);
+            console.warn('[RECEIVER] Erro ao conectar pipeline WebAudio:', err);
           }
 
           // Atualiza UI

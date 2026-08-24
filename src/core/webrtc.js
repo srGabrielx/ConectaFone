@@ -91,9 +91,13 @@ export class WebRTCManager {
       destination.channelCountMode = 'explicit';
       destination.channelInterpretation = 'speakers';
 
-      // Removemos o Oscillator para garantir silêncio absoluto.
-      // Em navegadores modernos, uma MediaStreamDestination vazia é suficiente
-      // para manter o canal WebRTC ativo sem gerar nenhum tom fantasma.
+      // ConstantSource com offset=0 produz silêncio absoluto e garante que
+      // a track permanece ativa (readyState=live) sem gerar nenhuma frequência.
+      const silence = ctx.createConstantSource();
+      silence.offset.value = 0;
+      silence.connect(destination);
+      silence.start();
+
       return destination.stream;
     } catch (e) {
       console.warn('[WebRTC Host] Falha ao criar silent stream estéreo:', e);
