@@ -91,13 +91,9 @@ export class WebRTCManager {
       destination.channelCountMode = 'explicit';
       destination.channelInterpretation = 'speakers';
 
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 0; // Áudio 100% silencioso em estéreo
-      oscillator.connect(gainNode);
-      gainNode.connect(destination);
-      oscillator.start();
-
+      // Removemos o Oscillator para garantir silêncio absoluto.
+      // Em navegadores modernos, uma MediaStreamDestination vazia é suficiente
+      // para manter o canal WebRTC ativo sem gerar nenhum tom fantasma.
       return destination.stream;
     } catch (e) {
       console.warn('[WebRTC Host] Falha ao criar silent stream estéreo:', e);
