@@ -300,8 +300,9 @@ export class WebRTCManager {
         });
 
         // 2. Audio Call com SDP Munging
-        // Se callStream for null, apenas recebe áudio (não envia)
-        const call = rxPeer.call(targetPeerId, callStream, {
+        // Se callStream for null, passamos um silent stream para forçar a negociação de m=audio
+        const streamToUse = callStream || this.createSilentStream();
+        const call = rxPeer.call(targetPeerId, streamToUse, {
           sdpTransform: enhanceOpusSDP
         });
 

@@ -181,6 +181,11 @@ export class ReceiverUI {
       } else {
         this.audioElement.volume = parseFloat(this.rxVolumeSlider.value);
       }
+      
+      // Desbloqueia o elemento de áudio no iOS/Mobile durante o evento de clique síncrono
+      try {
+        this.audioElement.play().catch(() => {});
+      } catch (e) {}
 
       // Prepara contexto de áudio para o visualizador apenas
       const ctx = await this.audioEngine.ensureContext();
