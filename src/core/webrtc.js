@@ -151,6 +151,17 @@ export class WebRTCManager {
       // Isso resolve o bug onde o ouvinte não consegue entrar na sala se o host não estiver transmitindo.
       let answerStream = this.currentStream || this.createSilentStream();
 
+      console.log('[WebRTC Host CALL ANSWER STREAM INSPECTION]', {
+        isCurrentStream: answerStream === this.currentStream,
+        tracks: answerStream ? answerStream.getTracks().map(t => ({
+          id: t.id,
+          kind: t.kind,
+          label: t.label,
+          enabled: t.enabled,
+          readyState: t.readyState
+        })) : []
+      });
+
       // Responde a chamada com o stream atual ou o silencioso
       call.answer(answerStream, {
         sdpTransform: enhanceOpusSDP
@@ -198,11 +209,37 @@ export class WebRTCManager {
 
   updateHostStream(newStream, isSystemAudio = false) {
     console.log('[WEBRTC] updateHostStream chamado:', isSystemAudio ? 'ÁUDIO REAL' : 'SEM ÁUDIO');
+    console.log('[WEBRTC STREAM INSPECTION]', {
+      hasStream: !!newStream,
+      isSystemAudio,
+      tracks: newStream ? newStream.getTracks().map(t => ({
+        id: t.id,
+        kind: t.kind,
+        label: t.label,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+        settings: t.getSettings()
+      })) : [],
+      audioTracksCount: newStream ? newStream.getAudioTracks().length : 0,
+      videoTracksCount: newStream ? newStream.getVideoTracks().length : 0
+    });
+
     this.currentStream = newStream;
     this.isTransmittingAudio = isSystemAudio;
     
     // Se newStream for nulo (captura parada), usa uma track silenciosa para manter a conexão WebRTC ativa
     const targetTrack = newStream ? newStream.getAudioTracks()[0] : (this.createSilentStream()?.getAudioTracks()[0] || null);
+
+    console.log('[WEBRTC TARGET TRACK TO INJECT IN PEERS]:', targetTrack ? {
+      id: targetTrack.id,
+      kind: targetTrack.kind,
+      label: targetTrack.label,
+      enabled: targetTrack.enabled,
+      muted: targetTrack.muted,
+      readyState: targetTrack.readyState,
+      settings: targetTrack.getSettings()
+    } : 'NULL');
 
     this.activeCalls.forEach((call, index) => {
       try {
@@ -211,6 +248,17 @@ export class WebRTCManager {
           console.warn(`[WEBRTC] Chamada ${index} sem peerConnection`);
           return;
         }
+
+        console.log(`[WEBRTC PEER CONNECTION ${index} STATE]`, {
+          connectionState: pc.connectionState,
+          iceConnectionState: pc.iceConnectionState,
+          signalingState: pc.signalingState,
+          senders: pc.getSenders().map(s => ({
+            trackId: s.track?.id,
+            trackKind: s.track?.kind,
+            trackLabel: s.track?.label
+          }))
+        });
 
         // Localiza o RTCRtpSender de áudio da chamada
         let audioSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');

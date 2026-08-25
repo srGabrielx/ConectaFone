@@ -57,16 +57,30 @@ export class ScreenAudioCapture {
     }
 
     const videoTrack = rawStream.getVideoTracks()[0];
-    const audioTrack = rawStream.getAudioTracks()[0];
+    const audioTracks = rawStream.getAudioTracks();
+    const audioTrack = audioTracks[0];
     const surface = videoTrack?.getSettings()?.displaySurface;
     
-    // Loga a superfície escolhida pelo usuário para diagnóstico
+    console.log('[CAPTURE LOG] Tracks capturados via getDisplayMedia:', {
+      totalAudioTracks: audioTracks.length,
+      videoTracks: rawStream.getVideoTracks().length,
+      displaySurface: surface,
+      allAudioTracksInfo: audioTracks.map((t, idx) => ({
+        index: idx,
+        id: t.id,
+        label: t.label,
+        kind: t.kind,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+        settings: t.getSettings()
+      }))
+    });
 
     console.table({
-      fallback: false,
       surface: surface,
-      audioLabel: audioTrack?.label,
-      audioId: audioTrack?.id,
+      audioLabel: audioTrack?.label || 'NENHUM ÁUDIO',
+      audioId: audioTrack?.id || 'N/A',
       channels: audioTrack?.getSettings()?.channelCount,
       sampleRate: audioTrack?.getSettings()?.sampleRate,
       audioReady: audioTrack?.readyState,
@@ -90,11 +104,14 @@ export class ScreenAudioCapture {
     this.videoTrack = videoTrack;
     this.audioTrack = audioTrack;
     
-    console.log('[SYSTEM AUDIO REAL]', {
+    console.log('[SYSTEM AUDIO REAL CAPTURADO]', {
       id: this.audioTrack.id,
       label: this.audioTrack.label,
-      settings: this.audioTrack.getSettings(),
-      constraints: this.audioTrack.getConstraints()
+      kind: this.audioTrack.kind,
+      enabled: this.audioTrack.enabled,
+      muted: this.audioTrack.muted,
+      readyState: this.audioTrack.readyState,
+      settings: this.audioTrack.getSettings()
     });
     
     this.audioTrack.enabled = true;
@@ -165,6 +182,20 @@ export class ScreenAudioCapture {
     }
 
     const audioTracks = rawStream.getAudioTracks();
+    console.log('[DEVICE CAPTURE LOG] Tracks capturados via getUserMedia:', {
+      totalAudioTracks: audioTracks.length,
+      allAudioTracksInfo: audioTracks.map((t, idx) => ({
+        index: idx,
+        id: t.id,
+        label: t.label,
+        kind: t.kind,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+        settings: t.getSettings()
+      }))
+    });
+
     if (audioTracks.length === 0) {
       throw new Error('NO_AUDIO_DEVICE_FOUND');
     }

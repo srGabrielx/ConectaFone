@@ -9,7 +9,6 @@ export class AudioEngine {
     this.masterGain = null;
     this.delayNode = null;
     this.analyser = null;
-    this.synthOscillators = [];
   }
 
   async ensureContext() {
